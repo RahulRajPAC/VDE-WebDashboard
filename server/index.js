@@ -10,7 +10,14 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, '..', '..'); // Assuming web-dashboard is inside project root
+
+// Determine if running locally (e.g. via 'npm run dev') or via npx
+// When running via npx, we want to look in the directory the user ran the command from
+const isNpxExecution = process.env.npm_command !== 'run' && !process.argv[1].includes('nodemon');
+const PROJECT_ROOT = isNpxExecution
+    ? process.cwd()
+    : path.resolve(__dirname, '..', '..');
+
 const DOCKER_COMPOSE_FILE = path.join(PROJECT_ROOT, 'docker-compose.yaml');
 
 const app = express();
@@ -203,13 +210,15 @@ const monitorDockerEvents = () => {
 // Start monitoring events
 let eventMonitor = monitorDockerEvents();
 
-// Serve the static files from the React app
-app.use(express.static(path.join(__dirname, '../dist')));
+if (isNpxExecution) {
+    // Serve the static files from the React app
+    app.use(express.static(path.join(__dirname, '../dist')));
 
-// Handle React routing, return all requests to React app
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
+    // Handle React routing, return all requests to React app
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../dist/index.html'));
+    });
+}
 
 const PORT = 3001;
 httpServer.listen(PORT, () => {
