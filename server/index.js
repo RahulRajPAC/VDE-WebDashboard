@@ -217,7 +217,7 @@ if (isNpxExecution) {
     // Handle React routing, return all requests to React app
     // Using app.use() instead of app.get('*') to be compatible with Express 5
     app.use((req, res) => {
-        res.sendFile(path.join(__dirname, '../dist/index.html'));
+        res.sendFile('index.html', { root: path.join(__dirname, '../dist') });
     });
 }
 
