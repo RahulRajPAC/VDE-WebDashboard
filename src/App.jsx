@@ -1,0 +1,39 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import BaseLayout from './components/layout/BaseLayout';
+import DashboardPage from './features/dashboard/DashboardPage';
+import SettingsPage from './features/settings/SettingsPage';
+import FlightDataPage from './features/flight-data/FlightDataPage';
+import LtnDataPage from './features/ltn/LtnDataPage';
+import AnsDataPage from './features/ans/AnsDataPage';
+import SurveysDataPage from './features/surveys/SurveysDataPage';
+
+
+import { SocketProvider } from './contexts/SocketContext';
+
+const queryClient = new QueryClient();
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SocketProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<BaseLayout />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="flight-data" element={<FlightDataPage />} />
+              <Route path="ltn" element={<LtnDataPage />} />
+              <Route path="ans" element={<AnsDataPage />} />
+              <Route path="surveys" element={<SurveysDataPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </Router>
+      </SocketProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
