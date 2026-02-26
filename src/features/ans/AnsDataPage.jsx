@@ -1,11 +1,15 @@
 import React from 'react';
-import { ANS_ADMIN_MOCKS_URL } from '@/config/api';
+import { useApi } from '@/contexts/ApiContext';
 import ServiceDataPage from '@/components/common/ServiceDataPage';
 
 export default function AnsDataPage() {
+    const { ansAdminMocksUrl, loading } = useApi();
+
+    if (loading) return <div className="p-8 flex items-center justify-center h-full">Loading configurations...</div>;
+
     return (
         <ServiceDataPage
-            apiBaseUrl={ANS_ADMIN_MOCKS_URL}
+            apiBaseUrl={ansAdminMocksUrl}
             serviceName="ANS"
             pageTitle="ANS Data Manager"
             pageDescription="Modify JSON responses for ANS service in real-time, safely."

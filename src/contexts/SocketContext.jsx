@@ -10,10 +10,41 @@ export const SocketProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(false);
     const socketRef = useRef(null);
 
+    // Docker Status State
+    const [dockerStatus, setDockerStatus] = useState({
+        installed: true,
+        running: true,
+        loading: true,
+        error: null
+    });
+
     // Global Event State (e.g., Update Dialog)
     const [pendingUpdateService, setPendingUpdateService] = useState(null);
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
     const pendingPullRef = useRef(null);
+
+    // Global Services State for the Sidebar status indicators
+    const [services, setServices] = useState([]);
+    const [servicesLoading, setServicesLoading] = useState(true);
+    const [servicesError, setServicesError] = useState(null);
+
+    const fetchServices = async () => {
+        try {
+            setServicesError(null);
+            const res = await fetch('http://localhost:3001/api/services');
+            if (res.ok) {
+                const data = await res.json();
+                setServices(data);
+            } else {
+                setServicesError('Failed to fetch service configuration.');
+            }
+        } catch (error) {
+            console.error('Failed to fetch services in context:', error);
+            setServicesError('Is the backend server running? Could not fetch service configuration.');
+        } finally {
+            setServicesLoading(false);
+        }
+    };
 
     useEffect(() => {
         const newSocket = io('http://localhost:3001');
@@ -39,9 +70,48 @@ export const SocketProvider = ({ children }) => {
             }
         });
 
+        // Whenever any docker action finishes, re-fetch the services to update the glowing sidebar dots
+        newSocket.on('status-update', () => {
+            fetchServices();
+        });
+
         return () => {
             newSocket.disconnect();
         };
+    }, []);
+
+    // Function to check Docker status
+    const checkDockerStatus = async () => {
+        try {
+            const res = await fetch('http://localhost:3001/api/docker-status');
+            if (res.ok) {
+                const data = await res.json();
+                setDockerStatus({
+                    ...data,
+                    loading: false
+                });
+            } else {
+                setDockerStatus(prev => ({ ...prev, loading: false, error: 'Failed to fetch status' }));
+            }
+        } catch (err) {
+            setDockerStatus({
+                installed: false,
+                running: false,
+                loading: false,
+                error: 'Backend offline or unreachable'
+            });
+        }
+    };
+
+    // Initial check and periodic polling every 10 seconds
+    useEffect(() => {
+        checkDockerStatus();
+        fetchServices();
+        const interval = setInterval(() => {
+            checkDockerStatus();
+            fetchServices();
+        }, 10000);
+        return () => clearInterval(interval);
     }, []);
 
     const setPendingPull = (service) => {
@@ -51,11 +121,17 @@ export const SocketProvider = ({ children }) => {
     const value = {
         socket,
         isConnected,
+        dockerStatus,
+        checkDockerStatus,
         updateDialogOpen,
         setUpdateDialogOpen,
         pendingUpdateService,
         setPendingUpdateService,
-        setPendingPull
+        setPendingPull,
+        services,
+        servicesLoading,
+        servicesError,
+        fetchServices
     };
 
     return (

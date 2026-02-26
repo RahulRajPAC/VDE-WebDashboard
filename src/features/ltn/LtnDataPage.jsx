@@ -1,11 +1,15 @@
 import React from 'react';
-import { LTN_ADMIN_MOCKS_URL } from '@/config/api';
+import { useApi } from '@/contexts/ApiContext';
 import ServiceDataPage from '@/components/common/ServiceDataPage';
 
 export default function LtnDataPage() {
+    const { ltnAdminMocksUrl, loading } = useApi();
+
+    if (loading) return <div className="p-8 flex items-center justify-center h-full">Loading configurations...</div>;
+
     return (
         <ServiceDataPage
-            apiBaseUrl={LTN_ADMIN_MOCKS_URL}
+            apiBaseUrl={ltnAdminMocksUrl}
             serviceName="LTN"
             pageTitle="LTN Data Manager"
             pageDescription="Modify JSON responses for LTN service in real-time, safely."

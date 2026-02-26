@@ -1,11 +1,15 @@
 import React from 'react';
-import { SURVEYS_ADMIN_MOCKS_URL } from '@/config/api';
+import { useApi } from '@/contexts/ApiContext';
 import ServiceDataPage from '@/components/common/ServiceDataPage';
 
 export default function SurveysDataPage() {
+    const { surveysAdminMocksUrl, loading } = useApi();
+
+    if (loading) return <div className="p-8 flex items-center justify-center h-full">Loading configurations...</div>;
+
     return (
         <ServiceDataPage
-            apiBaseUrl={SURVEYS_ADMIN_MOCKS_URL}
+            apiBaseUrl={surveysAdminMocksUrl}
             serviceName="Surveys"
             pageTitle="Surveys Data Manager"
             pageDescription="Modify JSON surveys content in real-time, safely."

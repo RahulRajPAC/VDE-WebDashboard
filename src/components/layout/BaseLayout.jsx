@@ -8,6 +8,8 @@ import {
     Settings,
     Globe,
     FileText,
+    Moon,
+    Sun,
 } from 'lucide-react';
 import {
     Breadcrumb,
@@ -42,6 +44,8 @@ import {
 } from "../ui/collapsible";
 import { Separator } from "../ui/separator";
 import { ChevronRight, ChevronLeft, PanelLeft } from "lucide-react";
+import DockerSetupGuide from '../DockerSetupGuide';
+import { useSocket } from '../../contexts/SocketContext';
 
 // Internal component to access Sidebar Context
 function SidebarPlatformTrigger() {
@@ -77,10 +81,10 @@ export default function BaseLayout() {
             title: "Services",
             icon: Server, // Generic icon for services
             items: [
-                { title: "Flight Data", url: "/flight-data", icon: Plane },
-                { title: "LTN", url: "/ltn", icon: Activity },
-                { title: "ANS", url: "/ans", icon: Globe },
-                { title: "Surveys", url: "/surveys", icon: FileText },
+                { title: "Flight Data", url: "/flight-data", icon: Plane, serviceName: 'flightdataservice' },
+                { title: "LTN", url: "/ltn", icon: Activity, serviceName: 'ltn' },
+                { title: "ANS", url: "/ans", icon: Globe, serviceName: 'ans' },
+                { title: "Surveys", url: "/surveys", icon: FileText, serviceName: 'surveys' },
             ]
         },
         {
@@ -108,8 +112,57 @@ export default function BaseLayout() {
     const isDashboard = location.pathname === '/';
     const isSettings = location.pathname === '/settings';
 
+    // Docker check
+    const { socket, dockerStatus, checkDockerStatus, services } = useSocket();
+    const isDockerAvailable = dockerStatus.loading || (dockerStatus.installed && dockerStatus.running);
+    const [wasBlocked, setWasBlocked] = React.useState(false);
+
+    // Theme state
+    const [isDark, setIsDark] = React.useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('theme');
+            if (saved) return saved === 'dark';
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        return false;
+    });
+
+    React.useEffect(() => {
+        const root = window.document.documentElement;
+        if (isDark) {
+            root.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            root.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+    }, [isDark]);
+
+    const toggleTheme = () => setIsDark(!isDark);
+
+    // Track if we were blocked by the Docker UI, so we can refresh when we recover
+    React.useEffect(() => {
+        if (!isDockerAvailable) {
+            setWasBlocked(true);
+        } else if (isDockerAvailable && wasBlocked) {
+            // We recovered! Tell the backend to force everyone to re-fetch container statuses
+            if (socket) {
+                // Emitting an arbitrary docker-action just to trigger the socket's status-refresh cascade
+                // A better approach if you have an explicit refresh event on the server
+                socket.emit('docker-action', { service: null, action: 'refresh_override' });
+            }
+            setWasBlocked(false);
+        }
+    }, [isDockerAvailable, wasBlocked, socket]);
+
     return (
         <SidebarProvider>
+            {!isDockerAvailable && (
+                <DockerSetupGuide
+                    status={dockerStatus}
+                    onRetry={checkDockerStatus}
+                />
+            )}
             <Sidebar collapsible="icon">
                 <SidebarHeader>
                     <div className="flex items-center gap-2 px-2 py-2 text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center">
@@ -145,16 +198,31 @@ export default function BaseLayout() {
                                                 </CollapsibleTrigger>
                                                 <CollapsibleContent>
                                                     <SidebarMenuSub>
-                                                        {item.items.map((subItem) => (
-                                                            <SidebarMenuSubItem key={subItem.title}>
-                                                                <SidebarMenuSubButton asChild isActive={location.pathname === subItem.url}>
-                                                                    <Link to={subItem.url}>
-                                                                        {/* Optional: <subItem.icon /> inside submenu? Usually just text */}
-                                                                        <span>{subItem.title}</span>
-                                                                    </Link>
-                                                                </SidebarMenuSubButton>
-                                                            </SidebarMenuSubItem>
-                                                        ))}
+                                                        {item.items.map((subItem) => {
+                                                            const serviceData = services?.find(s => s.name === subItem.serviceName);
+                                                            const isRunning = serviceData?.status === 'running';
+
+                                                            return (
+                                                                <SidebarMenuSubItem key={subItem.title}>
+                                                                    <SidebarMenuSubButton asChild isActive={location.pathname === subItem.url}>
+                                                                        <Link to={subItem.url} className="flex items-center justify-between w-full">
+                                                                            <span>{subItem.title}</span>
+                                                                            {subItem.serviceName && (
+                                                                                <div className="flex items-center">
+                                                                                    {/* Glowing dot indicator */}
+                                                                                    <span className="relative flex h-2.5 w-2.5 ml-2">
+                                                                                        {isRunning && (
+                                                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                                                        )}
+                                                                                        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isRunning ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
+                                                                        </Link>
+                                                                    </SidebarMenuSubButton>
+                                                                </SidebarMenuSubItem>
+                                                            );
+                                                        })}
                                                     </SidebarMenuSub>
                                                 </CollapsibleContent>
                                             </SidebarMenuItem>
@@ -207,7 +275,14 @@ export default function BaseLayout() {
                             )}
                         </BreadcrumbList>
                     </Breadcrumb>
-                    <div className="ml-auto flex items-center px-4">
+                    <div className="ml-auto flex items-center px-4 gap-4">
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                            aria-label="Toggle theme"
+                        >
+                            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                        </button>
                         <img src="/Brand.png" alt="Brand Logo" className="h-16 w-auto object-contain" />
                     </div>
                 </header>
