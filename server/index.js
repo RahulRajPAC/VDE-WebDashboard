@@ -230,7 +230,7 @@ io.on('connection', (socket) => {
         }
 
         // 1. VALIDATION: Only allow safe actions.
-        const allowedActions = ['up', 'down', 'start', 'stop', 'restart', 'pull', 'logs', 'update'];
+        const allowedActions = ['up', 'down', 'start', 'stop', 'pull', 'logs', 'update'];
         if (!allowedActions.includes(action)) {
             socket.emit('output', { service, type: 'error', data: `Invalid action: ${action}` });
             return;
@@ -238,7 +238,9 @@ io.on('connection', (socket) => {
 
         // 2. BUILD COMMAND: e.g., ['start', 'ans']
         let args = [action];
-        if (action === 'update') {
+        if (action === 'up') {
+            args = ['up', '-d'];
+        } else if (action === 'update') {
             args = ['up', '-d', service];
         } else if (service && action !== 'up' && action !== 'down') {
             args.push(service);
@@ -330,6 +332,20 @@ const monitorDockerEvents = () => {
 // Start monitoring events
 // let eventMonitor =
 monitorDockerEvents();
+
+// Watch for changes to the docker-compose.yaml file
+try {
+    if (fs.existsSync(DOCKER_COMPOSE_FILE)) {
+        fs.watch(DOCKER_COMPOSE_FILE, (eventType) => {
+            if (eventType === 'change') {
+                console.log('Detected changes in docker-compose.yaml');
+                io.emit('compose-file-changed');
+            }
+        });
+    }
+} catch (e) {
+    console.error('Failed to setup file watcher for docker-compose.yaml:', e);
+}
 
 if (isNpxExecution) {
     // Serve the static files from the React app

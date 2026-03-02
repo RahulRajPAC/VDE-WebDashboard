@@ -12,6 +12,7 @@ import SurveysDataPage from './features/surveys/SurveysDataPage';
 
 import { SocketProvider } from './contexts/SocketContext';
 import { ApiProvider } from './contexts/ApiContext';
+import { TourProvider } from './contexts/TourContext';
 
 const queryClient = new QueryClient();
 
@@ -20,19 +21,21 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <SocketProvider>
         <ApiProvider>
-          <Router>
-            <Routes>
-              <Route path="/" element={<BaseLayout />}>
-                <Route index element={<DashboardPage />} />
-                <Route path="flight-data" element={<FlightDataPage />} />
-                <Route path="ltn" element={<LtnDataPage />} />
-                <Route path="ans" element={<AnsDataPage />} />
-                <Route path="surveys" element={<SurveysDataPage />} />
-                <Route path="settings" element={<SettingsPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Route>
-            </Routes>
-          </Router>
+          <TourProvider>
+            <Router>
+              <Routes>
+                <Route path="/" element={<BaseLayout />}>
+                  <Route index element={<DashboardPage />} />
+                  <Route path="flight-data" element={<FlightDataPage />} />
+                  <Route path="ltn" element={<LtnDataPage />} />
+                  <Route path="ans" element={<AnsDataPage />} />
+                  <Route path="surveys" element={<SurveysDataPage />} />
+                  <Route path="settings" element={<SettingsPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Route>
+              </Routes>
+            </Router>
+          </TourProvider>
         </ApiProvider>
       </SocketProvider>
     </QueryClientProvider>

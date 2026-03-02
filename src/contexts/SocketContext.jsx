@@ -23,10 +23,26 @@ export const SocketProvider = ({ children }) => {
     const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
     const pendingPullRef = useRef(null);
 
+    // Persisted Log States
+    const [logs, setLogs] = useState({});
+    const [globalLogs, setGlobalLogs] = useState([]);
+
     // Global Services State for the Sidebar status indicators
     const [services, setServices] = useState([]);
     const [servicesLoading, setServicesLoading] = useState(true);
     const [servicesError, setServicesError] = useState(null);
+
+    // Track if docker-compose.yaml is modified
+    // Persist this flag in localStorage so it survives page reloads
+    const [composeFileChanged, setComposeFileChangedState] = useState(() => {
+        return localStorage.getItem('composeFileChanged') === 'true';
+    });
+
+    // Custom setter that also updates localStorage
+    const setComposeFileChanged = (value) => {
+        setComposeFileChangedState(value);
+        localStorage.setItem('composeFileChanged', value.toString());
+    };
 
     const fetchServices = async () => {
         try {
@@ -57,6 +73,10 @@ export const SocketProvider = ({ children }) => {
 
         newSocket.on('disconnect', () => {
             setIsConnected(false);
+        });
+
+        newSocket.on('compose-file-changed', () => {
+            setComposeFileChanged(true);
         });
 
         // Global Listener for Pull Completion
@@ -118,6 +138,10 @@ export const SocketProvider = ({ children }) => {
         pendingPullRef.current = service;
     };
 
+    const resetComposeFileChanged = () => {
+        setComposeFileChanged(false);
+    }
+
     const value = {
         socket,
         isConnected,
@@ -131,7 +155,13 @@ export const SocketProvider = ({ children }) => {
         services,
         servicesLoading,
         servicesError,
-        fetchServices
+        fetchServices,
+        composeFileChanged,
+        resetComposeFileChanged,
+        logs,
+        setLogs,
+        globalLogs,
+        setGlobalLogs
     };
 
     return (

@@ -45,6 +45,7 @@ import {
 import { Separator } from "../ui/separator";
 import { ChevronRight, ChevronLeft, PanelLeft } from "lucide-react";
 import DockerSetupGuide from '../DockerSetupGuide';
+import InteractiveDockerGuide from '../common/InteractiveDockerGuide';
 import { useSocket } from '../../contexts/SocketContext';
 
 // Internal component to access Sidebar Context
@@ -82,8 +83,8 @@ export default function BaseLayout() {
             icon: Server, // Generic icon for services
             items: [
                 { title: "Flight Data", url: "/flight-data", icon: Plane, serviceName: 'flightdataservice' },
-                { title: "LTN", url: "/ltn", icon: Activity, serviceName: 'ltn' },
                 { title: "ANS", url: "/ans", icon: Globe, serviceName: 'ans' },
+                { title: "LTN", url: "/ltn", icon: Activity, serviceName: 'ltn' },
                 { title: "Surveys", url: "/surveys", icon: FileText, serviceName: 'surveys' },
             ]
         },
@@ -276,6 +277,7 @@ export default function BaseLayout() {
                         </BreadcrumbList>
                     </Breadcrumb>
                     <div className="ml-auto flex items-center px-4 gap-4">
+                        <InteractiveDockerGuide />
                         <button
                             onClick={toggleTheme}
                             className="p-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,10 +37,13 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Activity, Play, Square, RotateCw, Download, Upload, Terminal, ChevronDown, Monitor, AlertTriangle, WifiOff, Loader2, HelpCircle } from 'lucide-react';
-import { io } from 'socket.io-client';
+import { Activity, Play, Square, RotateCw, Download, Upload, Terminal, Trash2, ChevronDown, Monitor, AlertTriangle, WifiOff, Loader2, HelpCircle, Search } from 'lucide-react';
+import Joyride from 'react-joyride';
+import { useTour } from '../../contexts/TourContext';
+import { settingsSteps } from '../../config/tourSteps';
 
-const CollapsibleServiceRow = ({ service, socket, logs, onAction, disabled }) => {
+
+const CollapsibleServiceRow = ({ service, logs, setLogs, onAction, disabled }) => {
     const isRunning = service.status === 'running';
     const isUncreated = service.status === 'uncreated';
     const [isOpen, setIsOpen] = useState(false);
@@ -52,81 +55,163 @@ const CollapsibleServiceRow = ({ service, socket, logs, onAction, disabled }) =>
         <Collapsible
             open={isOpen}
             onOpenChange={setIsOpen}
-            className="border rounded-md bg-card"
+            className="border border-border/50 rounded-xl bg-card shadow-sm transition-all duration-200 hover:shadow-md hover:border-border overflow-hidden group joyride-service-row"
         >
             <CollapsibleTrigger asChild disabled={isDisabled}>
-                <div className={`flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <div className={`flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <div className="flex items-center space-x-4">
-                        <Monitor className="h-5 w-5 text-muted-foreground" />
+                        <div className="bg-primary/10 p-2.5 rounded-lg group-hover:bg-primary/15 transition-colors">
+                            <Monitor className="h-5 w-5 text-primary" />
+                        </div>
                         <div>
-                            <h3 className="font-semibold capitalize text-sm">{service.name}</h3>
-                            <p className="text-xs text-muted-foreground">{service.details?.Status || 'No status info'}</p>
+                            <h3 className="font-semibold capitalize text-base tracking-tight">{service.name}</h3>
+                            <p className="text-xs text-muted-foreground/80 mt-0.5">{service.details?.Status || 'No status info'}</p>
                         </div>
                     </div>
                     <div className="flex items-center space-x-4">
-                        <Badge variant={isRunning ? "default" : "destructive"}>
+                        <div className="flex items-center gap-1.5 mr-2">
+                            {!isRunning && !isUncreated && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                size="icon"
+                                                variant="default"
+                                                className="h-8 w-8 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onAction(service.name, 'start');
+                                                }}
+                                                disabled={isDisabled}
+                                            >
+                                                <Play className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Start Container</TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
+                            {isRunning && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <ConfirmButton
+                                                actionName="Stop"
+                                                description={
+                                                    <span>
+                                                        Are you sure you want to stop <strong>{service.name}</strong>? <br /><br />
+                                                        <strong className="text-xl text-red-600 font-semibold">Warning: </strong>
+                                                        <strong className="text-lg text-red-500">Stopping the container will "erase" any modified JSON overrides from memory and restore the original mock JSON files.</strong>
+                                                    </span>
+                                                }
+                                                onConfirm={(e) => {
+                                                    // Stop event propagation if triggered via the dialog
+                                                    if (e) e.stopPropagation();
+                                                    onAction(service.name, 'stop');
+                                                }}
+                                                variant="destructive"
+                                                className="h-8 w-8 rounded-md bg-red-600 hover:bg-red-500 text-white shadow-sm transition-all p-0"
+                                                disabled={isDisabled}
+                                                // Prevent the collapsible wrapper from opening when clicking this button
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <Square className="h-4 w-4" />
+                                            </ConfirmButton>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Stop Container</TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
+                        </div>
+
+                        <Badge
+                            variant="outline"
+                            className={`px-2.5 py-0.5 border-transparent font-medium ${isRunning ? 'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
+                                isUncreated ? 'bg-muted text-muted-foreground' :
+                                    'bg-red-500/15 text-red-700 dark:bg-red-500/20 dark:text-red-400'
+                                }`}
+                        >
+                            <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isRunning ? 'bg-emerald-500 dark:bg-emerald-400' :
+                                isUncreated ? 'bg-muted-foreground/50' :
+                                    'bg-red-500 dark:bg-red-400'
+                                }`} />
                             {service.status || 'unknown'}
                         </Badge>
                         <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                     </div>
                 </div>
             </CollapsibleTrigger>
-            <CollapsibleContent className="p-4 pt-0 border-t bg-muted/20">
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => onAction(service.name, 'start')}
-                        disabled={isRunning || isUncreated || isDisabled}
-                    >
-                        <Play className="mr-2 h-3 w-3" /> Start
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => onAction(service.name, 'stop')}
-                        disabled={!isRunning || isDisabled}
-                    >
-                        <Square className="mr-2 h-3 w-3" /> Stop
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => onAction(service.name, 'restart')}
-                        disabled={isUncreated || isDisabled}
-                    >
-                        <RotateCw className="mr-2 h-3 w-3" /> Restart
-                    </Button>
-                    <ConfirmButton
-                        actionName="Pull"
-                        description={`Are you sure you want to pull the latest image for ${service.name}? This will fetch the latest updates from the Dockerhub repository.`}
-                        onConfirm={() => onAction(service.name, 'pull')}
-                        variant="outline"
-                        disabled={isDisabled}
-                        className="w-full justify-start cursor-pointer"
-                    >
-                        <Download className="mr-2 h-3 w-3" /> Pull
-                    </ConfirmButton>
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        className="w-full justify-start"
-                        onClick={() => onAction(service.name, 'logs')}
-                        disabled={isUncreated || isDisabled}
-                    >
-                        <Terminal className="mr-2 h-3 w-3" /> Logs
-                    </Button>
+            <CollapsibleContent className="p-4 md:p-5 pt-0 border-t border-border/50 bg-muted/20 pb-5">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    {/* Operational Actions */}
+                    <div className="flex flex-wrap gap-2">
+                        <ConfirmButton
+                            actionName="Pull"
+                            description={`Are you sure you want to pull the latest image for ${service.name}? This will fetch the latest updates from the Dockerhub repository.`}
+                            onConfirm={() => onAction(service.name, 'pull')}
+                            variant="secondary"
+                            disabled={isDisabled}
+                            className="cursor-pointer shadow-sm border border-border/50 hover:bg-blue-500/10 hover:text-blue-600 hover:border-blue-500/30 transition-colors"
+                        >
+                            <Download className="mr-2 h-3.5 w-3.5 text-blue-500" /> Update Service
+                        </ConfirmButton>
+                    </div>
+
+                    {/* Logging Actions */}
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            className="shadow-sm border border-border/50 hover:bg-indigo-500/10 hover:text-indigo-600 hover:border-indigo-500/30 transition-colors"
+                            onClick={() => onAction(service.name, 'logs')}
+                            disabled={isUncreated || isDisabled}
+                        >
+                            <Terminal className="mr-2 h-3.5 w-3.5 text-indigo-500" /> View Logs
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            className="shadow-sm border border-border/50 hover:bg-red-500/10 hover:text-red-600 hover:border-red-500/30 transition-colors"
+                            onClick={() => setLogs(prev => ({ ...prev, [service.name]: [] }))}
+                            disabled={!logs[service.name] || logs[service.name].length === 0}
+                        >
+                            <Trash2 className="mr-2 h-3.5 w-3.5 text-red-500" /> Clear Logs
+                        </Button>
+                    </div>
                 </div>
-                <div className="mt-4 bg-black rounded-md h-[200px] overflow-hidden text-xs font-mono p-2 border border-border">
+                <div className="mt-5 bg-black rounded-lg h-[250px] overflow-hidden text-xs font-mono p-3 border border-border/50 shadow-inner">
                     <ScrollArea className="h-full w-full">
-                        {logs[service.name]?.map((line, i) => (
-                            <div key={i} className={`whitespace-pre-wrap ${line?.startsWith?.('EXECUTING ACTION') ? 'text-yellow-400 font-bold bg-yellow-400/10 py-1 px-2 rounded my-2 border-l-2 border-yellow-400' : 'text-green-400'}`}>
-                                {line}
-                            </div>
-                        )) || <span className="text-muted-foreground italic">No logs...</span>}
+                        {logs[service.name]?.flatMap((logPayload, i) => {
+                            if (typeof logPayload !== 'string') return [];
+                            return logPayload.split(/\r?\n/).filter(l => l.length > 0).map((line, j) => {
+                                let className = 'text-green-400';
+                                let content = line;
+                                let prefix = null;
+                                let prefixColor = '';
+
+                                if (line.startsWith('[EVENT]')) className = 'text-blue-400 italic';
+                                else if (line.startsWith('[SYS]')) className = 'text-gray-400';
+                                else if (line.startsWith('[EXEC]')) className = 'text-yellow-400 font-bold bg-yellow-400/10 py-1 px-2 rounded my-1 border-l-2 border-yellow-400';
+                                else {
+                                    const match = line.match(/^([a-zA-Z0-9_-]+)(\s+\|\s?)(.*)/);
+                                    if (match) {
+                                        const serviceName = match[1];
+                                        content = match[3];
+                                        const colors = ['text-pink-400', 'text-indigo-400', 'text-teal-400', 'text-cyan-400', 'text-fuchsia-400', 'text-rose-400', 'text-violet-400', 'text-sky-400'];
+                                        const hash = serviceName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                                        prefixColor = colors[hash % colors.length];
+                                        prefix = serviceName + match[2];
+                                    }
+                                }
+
+                                return (
+                                    <div key={`${i}-${j}`} className={`whitespace-pre-wrap leading-relaxed ${className}`}>
+                                        {prefix && <span className={`${prefixColor} font-bold mr-1`}>{prefix}</span>}
+                                        {content}
+                                    </div>
+                                );
+                            });
+                        }) || <span className="text-muted-foreground italic">No logs...</span>}
                     </ScrollArea>
                 </div>
             </CollapsibleContent>
@@ -217,13 +302,31 @@ import { useSocket } from '../../contexts/SocketContext';
 // ... (imports remain)
 
 export default function DockerSettings() {
-    const { socket, isConnected, setPendingPull, updateDialogOpen, setUpdateDialogOpen, pendingUpdateService, setPendingUpdateService } = useSocket();
+    const { runTour, tourSteps, startPageTour, handleJoyrideCallback, stepIndex } = useTour();
+    const {
+        socket,
+        isConnected,
+        setPendingPull,
+        updateDialogOpen,
+        setUpdateDialogOpen,
+        pendingUpdateService,
+        setPendingUpdateService,
+        composeFileChanged,
+        resetComposeFileChanged,
+        logs,
+        setLogs,
+        globalLogs,
+        setGlobalLogs
+    } = useSocket();
     const [services, setServices] = useState([]);
-    const [logs, setLogs] = useState({});
-    const [globalLogs, setGlobalLogs] = useState([]);
     const [isGlobalLogsOpen, setIsGlobalLogsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredServices = services.filter(service =>
+        service.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     const fetchServices = async () => {
         setIsLoading(true);
@@ -245,19 +348,31 @@ export default function DockerSettings() {
 
     useEffect(() => {
         fetchServices();
+        startPageTour('Settings', settingsSteps);
     }, []);
 
     useEffect(() => {
         if (!socket) return;
 
-        const handleOutput = ({ service, type, data }) => {
+        const handleOutput = ({ service, data, type }) => {
+            const rawData = data || '';
+            let formattedLog = rawData;
+
+            if (type === 'exit') {
+                formattedLog = `[SYS] Process exited`;
+            } else if (type === 'info') {
+                formattedLog = `[EXEC] ${rawData}`;
+            } else if (type === 'event') {
+                formattedLog = `[EVENT] ${rawData}`;
+            }
+
             if (service) {
                 setLogs(prev => ({
                     ...prev,
-                    [service]: [...(prev[service] || []).slice(-99), data]
+                    [service]: [...(prev[service] || []).slice(-99), formattedLog]
                 }));
             } else {
-                setGlobalLogs(prev => [...prev.slice(-49), data]);
+                setGlobalLogs(prev => [...prev.slice(-49), formattedLog]);
             }
         };
 
@@ -273,7 +388,7 @@ export default function DockerSettings() {
             socket.off('output', handleOutput);
             socket.off('status-update', handleStatusUpdate);
         };
-    }, [socket]);
+    }, [socket, setLogs, setGlobalLogs]);
 
     const handleAction = (service, action) => {
         if (socket && isConnected) {
@@ -284,7 +399,7 @@ export default function DockerSettings() {
             const marker = `EXECUTING ACTION: [${action.toUpperCase()}] on ${service}`;
             setLogs(prev => ({
                 ...prev,
-                [service]: [...(prev[service] || []).slice(-99), marker]
+                [service]: [...(prev[service] || []).slice(-99)]
             }));
 
             socket.emit('docker-action', { service, action });
@@ -317,9 +432,104 @@ export default function DockerSettings() {
 
     const allUncreated = services.length > 0 && services.every(s => s.status === 'uncreated');
     const anyRunning = services.some(s => s.status === 'running');
+    const allRunning = services.length > 0 && services.every(s => s.status === 'running');
+    const anyStopped = services.some(s => s.status !== 'running' && s.status !== 'uncreated');
+
+    const renderDynamicGlobalControls = () => {
+        // We show Compose Up prominently if everything is uncreated OR if the compose file has changed
+        const showProminentUp = allUncreated || composeFileChanged;
+
+        return (
+            <>
+                {showProminentUp && (
+                    <ConfirmButton
+                        actionName="Initialize System (Up)"
+                        description="This will start all services defined in docker-compose.yaml. It may recreate containers if configuration has changed. Existing data in non-persistent volumes might be reset."
+                        onConfirm={() => {
+                            handleGlobalAction('up');
+                            resetComposeFileChanged(); // Reset the warning once they commit
+                        }}
+                        disabled={!isConnected}
+                        variant={showProminentUp ? "default" : "ghost"}
+                        className={`cursor-pointer h-9 px-4 text-sm font-medium transition-all rounded-md ${showProminentUp ? 'bg-emerald-600/90 hover:bg-emerald-600 text-white shadow-sm' : 'hover:bg-muted-foreground/10 hover:text-foreground'}`}
+                    >
+                        <Play className={`h-4 w-4 mr-2 ${showProminentUp ? '' : 'text-muted-foreground'}`} /> {composeFileChanged ? 'Apply Changes (Up)' : 'Initialize System (Up)'}
+                    </ConfirmButton>
+                )}
+
+                {(!allRunning && !allUncreated) && (
+                    <ConfirmButton
+                        actionName="Start All"
+                        description="This will start existing stopped containers. Note: Services will boot up with their default JSON mock data."
+                        onConfirm={() => handleGlobalAction('start')}
+                        variant={anyStopped ? "default" : "ghost"}
+                        disabled={!isConnected || allUncreated}
+                        className={`cursor-pointer h-9 px-4 text-sm font-medium transition-all shadow-sm rounded-md ${anyStopped ? 'bg-emerald-600/90 hover:bg-emerald-600 text-white border-transparent' : 'hover:bg-muted-foreground/10 hover:text-foreground'}`}
+                    >
+                        <Play className={`h-4 w-4 mr-2 ${anyStopped ? '' : 'text-muted-foreground'}`} /> Start All Services
+                    </ConfirmButton>
+                )}
+
+                {anyRunning && (
+                    <ConfirmButton
+                        actionName="Stop All"
+                        description={
+                            <span>
+                                This will stop all running containers.
+                                <strong className="text-lg text-red-500">Warning: Any in-memory mock JSON changes will be lost.</strong>
+                            </span>
+                        }
+                        onConfirm={() => handleGlobalAction('stop')}
+                        variant={allRunning ? "destructive" : "ghost"}
+                        disabled={!isConnected || !anyRunning}
+                        className={`cursor-pointer h-9 px-4 text-sm font-medium transition-all rounded-md ${allRunning ? 'shadow-sm bg-yellow-600/90 hover:bg-yellow-600 text-white' : 'hover:bg-muted-foreground/10 hover:text-foreground'}`}
+                    >
+                        <Square className={`h-4 w-4 mr-2 ${allRunning ? '' : 'text-muted-foreground'}`} /> Stop All Services
+                    </ConfirmButton>
+                )}
+
+                {!allUncreated && (
+                    <div className="w-px h-6 bg-border mx-1" />
+                )}
+
+                {!allUncreated && (
+                    <ConfirmButton
+                        actionName="Destroy System (Down)"
+                        description={
+                            <span>
+                                <strong className="text-lg text-red-500">WARNING:</strong> This will stop and REMOVE all containers and networks. Any data not stored in persistent volumes will be PERMANENTLY LOST.
+                            </span>
+                        }
+                        onConfirm={() => handleGlobalAction('down')}
+                        variant="destructive"
+                        disabled={!isConnected}
+                        validationKey="I agree to Destroy System"
+                        className="cursor-pointer h-9 px-4 text-sm font-medium hover:bg-destructive/90 transition-all shadow-sm rounded-md"
+                    >
+                        <Square className="h-4 w-4 mr-2" /> Destroy System (Down)
+                    </ConfirmButton>
+                )}
+            </>
+        );
+    };
 
     return (
         <div className="space-y-6">
+            <Joyride
+                steps={tourSteps}
+                run={runTour}
+                stepIndex={stepIndex}
+                continuous={true}
+                showSkipButton={true}
+                showProgress={true}
+                callback={handleJoyrideCallback}
+                styles={{
+                    options: {
+                        primaryColor: '#3b82f6',
+                        zIndex: 1000,
+                    }
+                }}
+            />
             {/* System Status Alert */}
             {(!isConnected || error) && (
                 <Alert variant="destructive">
@@ -331,197 +541,142 @@ export default function DockerSettings() {
                 </Alert>
             )}
 
+            {/* Docker Compose Changed Banner */}
+            {(isConnected && composeFileChanged) && (
+                <Alert className="bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-200 dark:border-emerald-800 animate-in fade-in slide-in-from-top-4">
+                    <AlertTriangle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <AlertTitle className="font-semibold text-emerald-700 dark:text-emerald-300">Configuration Changes Detected</AlertTitle>
+                    <AlertDescription className="mt-1">
+                        The <code className="bg-emerald-100 dark:bg-emerald-900/50 px-1 py-0.5 rounded text-xs">docker-compose.yaml</code> file has been modified.
+                        Click <strong className="font-semibold px-1">Initialize System (Up)</strong> to safely apply these changes to the running stack.
+                    </AlertDescription>
+                </Alert>
+            )}
+
             <Card>
-                <CardHeader className="flex flex-row items-baseline justify-between space-y-0 pb-4">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                     <div className="flex flex-col space-y-1">
-                        <div className="flex items-center gap-4">
-                            <CardTitle className="flex items-center gap-2">
-                                <Activity className="h-5 w-5" />
-                                Global Controls
-                            </CardTitle>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="cursor-pointer shadow-sm">
-                                        System Actions <ChevronDown className="h-4 w-4 ml-2" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-56 p-2 space-y-2">
-                                    <DropdownMenuLabel>Docker Compose</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <ConfirmButton
-                                        actionName="Up"
-                                        description="This will start all services defined in docker-compose.yaml. It may recreate containers if configuration has changed. Existing data in non-persistent volumes might be reset."
-                                        onConfirm={() => handleGlobalAction('up')}
-                                        disabled={!isConnected}
-                                        validationKey="I agree to Compose Up"
-                                        className="w-full justify-start cursor-pointer"
-                                    >
-                                        <Play className="h-4 w-4 mr-2" />
-                                        Compose Up
-                                    </ConfirmButton>
-
-                                    <ConfirmButton
-                                        actionName="Start"
-                                        description="This will start existing stopped containers. No data will be lost, and containers will resume from their previous state."
-                                        onConfirm={() => handleGlobalAction('start')}
-                                        variant="outline"
-                                        disabled={!isConnected || allUncreated}
-                                        className="w-full justify-start cursor-pointer border-transparent hover:bg-muted"
-                                    >
-                                        <Play className="h-4 w-4 mr-2" />
-                                        Compose Start
-                                    </ConfirmButton>
-
-                                    <ConfirmButton
-                                        actionName="Stop"
-                                        description="This will stop all running containers. State is preserved, and you can resume later with 'Start'."
-                                        onConfirm={() => handleGlobalAction('stop')}
-                                        variant="outline"
-                                        disabled={!isConnected || !anyRunning}
-                                        className="w-full justify-start cursor-pointer border-transparent hover:bg-muted"
-                                    >
-                                        <Square className="h-4 w-4 mr-2" />
-                                        Compose Stop
-                                    </ConfirmButton>
-
-                                    <ConfirmButton
-                                        actionName="Down"
-                                        description="WARNING: This will stop and REMOVE all containers and networks. Any data not stored in persistent volumes will be PERMANENTLY LOST."
-                                        onConfirm={() => handleGlobalAction('down')}
-                                        variant="destructive"
-                                        disabled={!isConnected}
-                                        validationKey="I agree to Compose Down"
-                                        className="w-full justify-start cursor-pointer mt-2"
-                                    >
-                                        <Square className="h-4 w-4 mr-2" />
-                                        Compose Down
-                                    </ConfirmButton>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <Drawer open={isGlobalLogsOpen} onOpenChange={setIsGlobalLogsOpen}>
-                                <DrawerTrigger asChild>
-                                    <Button variant="default" size="sm" className="cursor-pointer bg-green-600 hover:bg-green-700 text-white shadow-md">
-                                        <Terminal className="w-4 h-4 mr-2" />
-                                        View Global Logs
-                                    </Button>
-                                </DrawerTrigger>
-                                <DrawerContent>
-                                    <div className="mx-auto w-full max-w-4xl">
-                                        <DrawerHeader>
-                                            <DrawerTitle>Global System Logs</DrawerTitle>
-                                            <DrawerDescription>Live output stream for Compose Up, Compose Down, and System actions.</DrawerDescription>
-                                        </DrawerHeader>
-                                        <div className="p-4">
-                                            <div className="bg-black rounded-md h-[50vh] overflow-hidden text-xs font-mono p-4 border border-border">
-                                                <ScrollArea className="h-full w-full">
-                                                    {globalLogs.length > 0 ? (
-                                                        globalLogs.map((log, i) => (
-                                                            <div key={i} className={`whitespace-pre-wrap ${log?.startsWith?.('EXECUTING GLOBAL SYSTEM ACTION') ? 'text-blue-400 font-bold bg-blue-400/10 py-1 px-2 rounded my-2 border-l-2 border-blue-400' : 'text-emerald-400'}`}>
-                                                                {log}
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="flex items-center justify-center h-full text-muted-foreground italic">
-                                                            No recent global system output...
-                                                        </div>
-                                                    )}
-                                                </ScrollArea>
-                                            </div>
-                                        </div>
-                                        <DrawerFooter className="flex-row justify-end space-x-2">
-                                            <Button
-                                                variant="default"
-                                                className="cursor-pointer bg-blue-600 hover:bg-blue-700 shadow-md"
-                                                onClick={() => {
-                                                    const marker = `EXECUTING GLOBAL SYSTEM ACTION: [COMPOSE LOGS]`;
-                                                    setGlobalLogs(prev => [...prev.slice(-49), marker]);
-                                                    socket.emit('docker-action', { service: null, action: 'logs' })
-                                                }}
-                                            >
-                                                <Terminal className="w-4 h-4 mr-2" /> Stream Live Logs
-                                            </Button>
-                                            <DrawerClose asChild>
-                                                <Button variant="outline" className="cursor-pointer">Close Logs</Button>
-                                            </DrawerClose>
-                                        </DrawerFooter>
-                                    </div>
-                                </DrawerContent>
-                            </Drawer>
-                        </div>
+                        <CardTitle className="flex items-center gap-2">
+                            <Activity className="h-5 w-5" />
+                            Global Controls
+                        </CardTitle>
                         <CardDescription className="mt-1">Manage the entire application stack</CardDescription>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <Drawer>
-                            <DrawerTrigger asChild>
-                                <Button variant="default" className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white shadow-md">
-                                    <HelpCircle className="w-4 h-4 mr-2" />
-                                    Interactive Docker Guide
-                                </Button>
-                            </DrawerTrigger>
-                            <DrawerContent>
-                                <div className="mx-auto w-full max-w-3xl">
-                                    <DrawerHeader>
-                                        <DrawerTitle>Docker Application Guide</DrawerTitle>
-                                        <DrawerDescription>Learn what each action does and how to manage the simulator containers.</DrawerDescription>
-                                    </DrawerHeader>
-                                    <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-                                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                            <div className="rounded-lg border p-4 shadow-sm bg-muted/20">
-                                                <h4 className="font-semibold text-primary flex items-center gap-2"><Play className="h-4 w-4" /> Compose Up</h4>
-                                                <p className="text-sm text-muted-foreground mt-2">Spins up fresh containers from your images and maps the network ports. This command is required if you have recently run 'Compose Down'.</p>
-                                            </div>
-                                            <div className="rounded-lg border p-4 shadow-sm bg-muted/20">
-                                                <h4 className="font-semibold text-primary flex items-center gap-2"><Square className="h-4 w-4" /> Compose Down</h4>
-                                                <p className="text-sm text-muted-foreground mt-2">Fundamentally destroys the running containers and networks. Use this when you are completely finished with a session to save RAM.</p>
-                                            </div>
-                                            <div className="rounded-lg border p-4 shadow-sm bg-muted/20">
-                                                <h4 className="font-semibold text-primary flex items-center gap-2"><Play className="h-4 w-4" /> Compose Start</h4>
-                                                <p className="text-sm text-muted-foreground mt-2">Starts all previously created but stopped containers simultaneously. Allows you to resume operations very fast.</p>
-                                            </div>
-                                            <div className="rounded-lg border p-4 shadow-sm bg-muted/20">
-                                                <h4 className="font-semibold text-primary flex items-center gap-2"><Square className="h-4 w-4" /> Compose Stop</h4>
-                                                <p className="text-sm text-muted-foreground mt-2">Safely suspends and stops all currently running containers across the entire system without wiping their networks.</p>
-                                            </div>
-                                            <div className="rounded-lg border p-4 shadow-sm bg-muted/20">
-                                                <h4 className="font-semibold text-primary flex items-center gap-2"><Play className="h-4 w-4" /> Local Start/Stop</h4>
-                                                <p className="text-sm text-muted-foreground mt-2">Safely pauses and resumes an individual container row. Very useful for testing network downtime or simulating offline failures.</p>
-                                            </div>
-                                            <div className="rounded-lg border p-4 shadow-sm bg-muted/20">
-                                                <h4 className="font-semibold text-primary flex items-center gap-2"><Download className="h-4 w-4" /> Pull Updates</h4>
-                                                <p className="text-sm text-muted-foreground mt-2">Downloads the absolute newest registry binary for a specific service. It will prompt you to apply it and recreate!</p>
-                                            </div>
-                                        </div>
-                                        <Alert className="mt-4 border-blue-200 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300">
-                                            <Terminal className="h-4 w-4 !text-blue-800 dark:!text-blue-300" />
-                                            <AlertTitle>Logging Information</AlertTitle>
-                                            <AlertDescription>
-                                                Individual container standard output feeds stream straight into their local "Logs" dropdown!
-                                            </AlertDescription>
-                                        </Alert>
-                                    </div>
-                                    <DrawerFooter>
-                                        <DrawerClose asChild>
-                                            <Button variant="outline" className="cursor-pointer">Close Guide</Button>
-                                        </DrawerClose>
-                                    </DrawerFooter>
-                                </div>
-                            </DrawerContent>
-                        </Drawer>
+                    <div className="flex items-center gap-1.5 bg-muted/30 p-1.5 rounded-lg border border-border/50 shadow-sm transition-all duration-200 hover:shadow-md joyride-global-actions">
+                        {renderDynamicGlobalControls()}
                     </div>
                 </CardHeader>
             </Card>
 
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold tracking-tight">Service Configuration</h2>
-                    {isLoading && (
-                        <div className="flex items-center text-sm text-muted-foreground">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Fetching configuration...
+            <div className="flex justify-end">
+                <Drawer open={isGlobalLogsOpen} onOpenChange={setIsGlobalLogsOpen}>
+                    <DrawerTrigger asChild>
+                        <Button variant="default" size="sm" className="cursor-pointer bg-green-600 hover:bg-green-700 text-white shadow-md joyride-logs-viewer">
+                            <Terminal className="w-4 h-4 mr-2" />
+                            View Global Logs
+                        </Button>
+                    </DrawerTrigger>
+                    <DrawerContent>
+                        <div className="mx-auto w-full max-w-4xl">
+                            <DrawerHeader>
+                                <DrawerTitle>Global System Logs</DrawerTitle>
+                                <DrawerDescription>Live output stream for Compose Up, Compose Down, and System actions.</DrawerDescription>
+                            </DrawerHeader>
+                            <div className="p-4">
+                                <div className="bg-black rounded-md h-[50vh] overflow-hidden text-xs font-mono p-4 border border-border">
+                                    <ScrollArea className="h-full w-full">
+                                        {globalLogs.length > 0 ? (
+                                            globalLogs.flatMap((logPayload, i) => {
+                                                if (typeof logPayload !== 'string') return [];
+                                                return logPayload.split(/\r?\n/).filter(l => l.length > 0).map((line, j) => {
+                                                    let className = 'text-emerald-400';
+                                                    let content = line;
+                                                    let prefix = null;
+                                                    let prefixColor = '';
+
+                                                    if (line.startsWith('[EVENT]')) className = 'text-blue-400 italic';
+                                                    else if (line.startsWith('[SYS]')) className = 'text-gray-400';
+                                                    else if (line.startsWith('EXECUTING GLOBAL SYSTEM ACTION')) className = 'text-blue-400 font-bold bg-blue-400/10 py-1 px-2 rounded my-2 border-l-2 border-blue-400';
+                                                    else if (line.startsWith('[EXEC]')) className = 'text-yellow-400 font-bold bg-yellow-400/10 py-1 px-2 rounded my-1 border-l-2 border-yellow-400';
+                                                    else {
+                                                        const match = line.match(/^([a-zA-Z0-9_-]+)(\s+\|\s?)(.*)/);
+                                                        if (match) {
+                                                            const serviceName = match[1];
+                                                            content = match[3];
+                                                            const colors = ['text-pink-400', 'text-indigo-400', 'text-teal-400', 'text-cyan-400', 'text-fuchsia-400', 'text-rose-400', 'text-violet-400', 'text-sky-400'];
+                                                            const hash = serviceName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                                                            prefixColor = colors[hash % colors.length];
+                                                            prefix = serviceName + match[2];
+                                                        }
+                                                    }
+
+                                                    return (
+                                                        <div key={`${i}-${j}`} className={`whitespace-pre-wrap leading-relaxed ${className}`}>
+                                                            {prefix && <span className={`${prefixColor} font-bold mr-1`}>{prefix}</span>}
+                                                            {content}
+                                                        </div>
+                                                    );
+                                                });
+                                            })
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full text-muted-foreground italic">
+                                                No recent global system output...
+                                            </div>
+                                        )}
+                                    </ScrollArea>
+                                </div>
+                            </div>
+                            <DrawerFooter className="flex-row justify-end space-x-2">
+                                <Button
+                                    variant="default"
+                                    className="cursor-pointer bg-blue-600 hover:bg-blue-700 shadow-md"
+                                    onClick={() => {
+                                        const marker = `EXECUTING GLOBAL SYSTEM ACTION: [COMPOSE LOGS]`;
+                                        setGlobalLogs(prev => [...prev.slice(-49), marker]);
+                                        socket.emit('docker-action', { service: null, action: 'logs' })
+                                    }}
+                                >
+                                    <Terminal className="w-4 h-4 mr-2" /> Stream Live Logs
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="cursor-pointer hover:bg-red-500/10 hover:text-red-600 hover:border-red-500/30 text-red-500 border-border"
+                                    onClick={() => setGlobalLogs([])}
+                                    disabled={globalLogs.length === 0}
+                                >
+                                    <Trash2 className="w-4 h-4 mr-2" /> Clear Logs
+                                </Button>
+                                <DrawerClose asChild>
+                                    <Button variant="outline" className="cursor-pointer">Close Logs</Button>
+                                </DrawerClose>
+                            </DrawerFooter>
                         </div>
-                    )}
+                    </DrawerContent>
+                </Drawer>
+            </div>
+
+            <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 className="text-xl font-semibold tracking-tight">Service Configuration</h2>
+                    <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                placeholder="Search services..."
+                                className="pl-8 h-9 w-[200px] lg:w-[300px]"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        {isLoading && (
+                            <div className="flex items-center text-sm text-muted-foreground whitespace-nowrap">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Fetching...
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="space-y-4">
@@ -539,12 +694,13 @@ export default function DockerSettings() {
                             </div>
                         ))
                     ) : (
-                        services.map(service => (
+                        filteredServices.map(service => (
                             <CollapsibleServiceRow
                                 key={service.name}
                                 service={service}
                                 socket={socket}
                                 logs={logs}
+                                setLogs={setLogs}
                                 onAction={handleAction}
                                 disabled={!isConnected}
                             />
@@ -554,6 +710,12 @@ export default function DockerSettings() {
                     {!isLoading && services.length === 0 && !error && (
                         <div className="text-center p-8 border border-dashed rounded-md text-muted-foreground">
                             No services found in docker-compose.yaml
+                        </div>
+                    )}
+
+                    {!isLoading && services.length > 0 && filteredServices.length === 0 && !error && (
+                        <div className="text-center p-8 border border-dashed rounded-md text-muted-foreground">
+                            No services match your search inquiry.
                         </div>
                     )}
                 </div>
@@ -575,6 +737,6 @@ export default function DockerSettings() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div>
+        </div >
     );
 }

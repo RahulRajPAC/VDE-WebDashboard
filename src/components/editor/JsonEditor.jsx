@@ -40,9 +40,10 @@ export default function JsonEditor({
 
     if (loading) {
         return (
-            <div className="md:col-span-3 flex flex-col items-center justify-center h-full min-h-[400px]">
+            <div className="md:col-span-3 flex flex-col items-center justify-center h-full min-h-[400px] joyride-json-editor relative">
                 <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
                 <p className="text-muted-foreground animate-pulse">Fetching data...</p>
+                <div className="absolute w-px h-px opacity-0 joyride-save-btn"></div>
             </div>
         );
     }
@@ -52,15 +53,16 @@ export default function JsonEditor({
     // To be perfectly safe and match original behavior, if there's an error, we show the fullscreen error.
     if (error && (!selectedMock || error.includes("Failed to load"))) {
         return (
-            <div className="md:col-span-3 flex flex-col items-center justify-center h-full">
+            <div className="md:col-span-3 flex flex-col items-center justify-center h-full joyride-json-editor relative">
                 <h3 className="text-xl font-semibold text-foreground text-red-500">{error}</h3>
                 <p className="text-sm text-muted-foreground">Please Start the Container from the <b>Settings</b> first to view</p>
+                <div className="absolute w-px h-px opacity-0 joyride-save-btn"></div>
             </div>
         );
     }
 
     return (
-        <Card className="md:col-span-3 flex flex-col overflow-hidden border-none shadow-md relative bg-background">
+        <Card className="md:col-span-3 flex flex-col overflow-hidden border-none shadow-md relative bg-background joyride-json-editor">
             {selectedMock ? (
                 <>
                     {/* Editor Toolbar */}
@@ -95,7 +97,7 @@ export default function JsonEditor({
                             </span>
                             <Separator orientation="vertical" className="h-6" />
                             <span className={loading || !hasChanges ? "cursor-not-allowed" : ""}>
-                                <Button size="sm" title="Changes are saved in-memory" onClick={handleSave} disabled={loading || !hasChanges} className="px-6 transition-all active:scale-95 cursor-pointer">
+                                <Button size="sm" title="Changes are saved in-memory" onClick={handleSave} disabled={loading || !hasChanges} className="px-6 transition-all active:scale-95 cursor-pointer joyride-save-btn">
                                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     Save Changes
                                 </Button>
@@ -174,6 +176,7 @@ export default function JsonEditor({
                     <p className="text-sm max-w-sm text-center mt-2 text-muted-foreground">
                         {emptyStateDescription}
                     </p>
+                    <div className="absolute bottom-4 right-4 w-px h-px opacity-0 joyride-save-btn"></div>
                 </div>
             )}
         </Card>

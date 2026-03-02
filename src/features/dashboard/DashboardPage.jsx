@@ -1,13 +1,17 @@
 import React, { useEffect, useState, useRef } from 'react';
+import Joyride from 'react-joyride';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Server, CheckCircle, ArrowRight, Zap, RefreshCcw } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Badge } from '@/components/ui/badge';
 
 import { useSocket } from '../../contexts/SocketContext';
+import { useTour } from '../../contexts/TourContext';
+import { dashboardSteps } from '../../config/tourSteps';
 
 export default function DashboardPage() {
     const { socket, isConnected } = useSocket();
+    const { runTour, tourSteps, startPageTour, handleJoyrideCallback, stepIndex } = useTour();
     const [services, setServices] = useState([]);
 
     const fetchServices = async () => {
@@ -22,6 +26,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         fetchServices();
+        startPageTour('Dashboard', dashboardSteps);
     }, []);
 
     useEffect(() => {
@@ -76,8 +81,23 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <Joyride
+                steps={tourSteps}
+                run={runTour}
+                stepIndex={stepIndex}
+                continuous={true}
+                showSkipButton={true}
+                showProgress={true}
+                callback={handleJoyrideCallback}
+                styles={{
+                    options: {
+                        primaryColor: '#3b82f6',
+                        zIndex: 1000,
+                    }
+                }}
+            />
             {/* KPI Cards */}
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-3 joyride-metrics-cards">
                 {/* Connection Status */}
                 <Card className="border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -123,7 +143,7 @@ export default function DashboardPage() {
 
             <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
                 {/* Main Content: Service Cards Grid (Takes 2 columns on large screens) */}
-                <div className="lg:col-span-2 space-y-4">
+                <div className="lg:col-span-2 space-y-4 joyride-service-status-card">
                     <div className="flex items-center justify-between">
                         <div>
                             <h2 className="text-lg font-semibold tracking-tight">Service Overview</h2>
@@ -178,7 +198,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Sidebar: Service Status List (Restored) */}
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 joyride-active-mocks">
                     <Card className="h-full">
                         <CardHeader>
                             <CardTitle>Status List</CardTitle>

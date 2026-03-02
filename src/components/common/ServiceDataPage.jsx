@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import JsonEditor, { editorThemes } from '@/components/editor/JsonEditor';
+import { useTour } from '@/contexts/TourContext';
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,9 @@ export default function ServiceDataPage({
     const [success, setSuccess] = useState(null);
     const [editorTheme, setEditorTheme] = useState('one_dark');
     const [fontSize, setFontSize] = useState(14);
+
+    // Joyride Tour Hooks
+    const { advanceTour, stepIndex, tourName } = useTour();
 
     useEffect(() => {
         fetchMocks();
@@ -55,6 +59,10 @@ export default function ServiceDataPage({
     };
 
     const handleSelectMock = async (key) => {
+        if (tourName === 'FlightData' && stepIndex === 1) {
+            advanceTour();
+        }
+
         setLoading(true);
         setError(null);
         setSuccess(null);
@@ -144,7 +152,7 @@ export default function ServiceDataPage({
             {/* Main Content Split View */}
             <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-6 min-h-0">
                 {/* Sidebar: Mock List */}
-                <Card className="md:col-span-1 flex flex-col overflow-hidden border-none shadow-md">
+                <Card className="md:col-span-1 flex flex-col overflow-hidden border-none shadow-md joyride-service-selector">
                     <div className="p-4 border-b bg-muted/30">
                         <h3 className="font-semibold flex items-center gap-2">
                             <FileCode className="h-4 w-4" />
