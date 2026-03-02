@@ -8,6 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import yaml from 'yaml';
 import { fileURLToPath } from 'url';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -116,72 +117,81 @@ app.get('/api/services', async (req, res) => {
 
 // Endpoint for checking Docker Desktop status
 app.get('/api/docker-status', (req, res) => {
-    // We use "docker info" because it verifies both that the CLI exists and the daemon is responsive
-    const cmd = spawn('docker', ['info', '--format', '{{json .}}']);
+    // 1. Check if Docker CLI is installed
+    const checkCli = spawn('docker', ['--version']);
+    let cliResponded = false;
 
-    let errorOutput = '';
-    let responded = false;
+    checkCli.on('error', (err) => {
+        if (cliResponded) return;
+        cliResponded = true;
+        res.json({ installed: false, running: false, status: 'NOT_INSTALLED', error: err.message });
+    });
 
-    // Safety timeout: If Docker is Paused/Frozen, it hangs indefinitely. 
-    // We cap the wait at 3 seconds to catch this state.
-    const timeoutMsg = setTimeout(() => {
-        if (!responded) {
+    checkCli.on('close', (code) => {
+        if (cliResponded) return;
+        cliResponded = true;
+
+        if (code !== 0) {
+            return res.json({ installed: false, running: false, status: 'NOT_INSTALLED', error: 'Docker CLI not found or returned non-zero code' });
+        }
+
+        // 2. Docker is installed. Now check socket existence
+        const isWindows = process.platform === 'win32';
+        const desktopSocketPath = path.join(os.homedir(), '.docker', 'run', 'docker.sock');
+        const defaultSocketPath = '/var/run/docker.sock';
+        let socketExists = false;
+
+        if (!isWindows) {
+            socketExists = fs.existsSync(desktopSocketPath) || fs.existsSync(defaultSocketPath);
+        }
+
+        // 3. Probe with docker version to see if daemon is responsive
+        const cmd = spawn('docker', ['version', '--format', '{{.Server.Version}}']);
+        let responded = false;
+
+        // Safety timeout to catch paused/frozen daemon
+        const timeoutMsg = setTimeout(() => {
+            if (!responded) {
+                responded = true;
+                cmd.kill(); // Kill the hanging process
+
+                // If socket exists but we time out, Docker is likely Paused/Frozen
+                res.json({
+                    installed: true,
+                    running: false,
+                    status: 'PAUSED_OR_FROZEN',
+                    error: socketExists ? 'PAUSED' : 'TIMEOUT' // Triggers Whale menu prompt or generic Frozen warning
+                });
+            }
+        }, 2000);
+
+        // We do not parse JSON or output strings
+        cmd.on('error', (err) => {
+            if (responded) return;
             responded = true;
-            cmd.kill(); // Kill the hanging process
-            res.json({
-                installed: true,
-                running: false,
-                error: 'TIMEOUT'
-            });
-        }
-    }, 3000);
+            clearTimeout(timeoutMsg);
+            res.json({ installed: true, running: false, status: 'DESKTOP_STOPPED', error: err.message });
+        });
 
-    let stdOutput = '';
+        cmd.on('close', (code) => {
+            if (responded) return;
+            responded = true;
+            clearTimeout(timeoutMsg);
 
-    cmd.stdout.on('data', (data) => {
-        stdOutput += data.toString();
-    });
-
-    cmd.stderr.on('data', (data) => {
-        errorOutput += data.toString();
-    });
-
-    cmd.on('close', (code) => {
-        if (responded) return;
-        responded = true;
-        clearTimeout(timeoutMsg);
-
-        const combinedOutput = (stdOutput + errorOutput).toLowerCase();
-
-        // If Docker explicitly responds saying it is manually paused, treat it as frozen
-        if (combinedOutput.includes('manually paused')) {
-            return res.json({
-                installed: true,
-                running: false,
-                error: 'PAUSED'
-            });
-        }
-
-        if (code === 0) {
-            // Docker is installed and running
-            res.json({ installed: true, running: true, error: null });
-        } else {
-            // If we reach the 'close' event, the docker binary was found and executed.
-            // Any non-zero exit code here just means the daemon itself is down/unreachable.
-            res.json({
-                installed: true,
-                running: false,
-                error: errorOutput.trim()
-            });
-        }
-    });
-
-    cmd.on('error', (err) => {
-        if (responded) return;
-        responded = true;
-        clearTimeout(timeoutMsg);
-        // If spawn completely fails (e.g., ENOENT because docker is not in PATH at all)
-        res.json({ installed: false, running: false, error: err.message });
+            if (code === 0) {
+                // Docker is installed and daemon is running
+                res.json({ installed: true, running: true, status: 'RUNNING', error: null });
+            } else {
+                // Command failed immediately without timing out.
+                // If the socket still exists, Docker is likely manually paused. Otherwise, it is fully stopped.
+                res.json({
+                    installed: true,
+                    running: false,
+                    status: socketExists ? 'PAUSED_OR_FROZEN' : 'DESKTOP_STOPPED',
+                    error: socketExists ? 'PAUSED' : null
+                });
+            }
+        });
     });
 });
 
