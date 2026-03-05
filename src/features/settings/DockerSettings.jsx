@@ -84,7 +84,7 @@ const CollapsibleServiceRow = ({ service, logs, setLogs, onAction, disabled }) =
                                                 }}
                                                 disabled={isDisabled}
                                             >
-                                                <Play className="h-4 w-4" />
+                                                <Play className="h-4 w-4 joyride-service-start cursor-pointer" />
                                             </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>Start Container</TooltipContent>
@@ -115,7 +115,7 @@ const CollapsibleServiceRow = ({ service, logs, setLogs, onAction, disabled }) =
                                                 // Prevent the collapsible wrapper from opening when clicking this button
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                <Square className="h-4 w-4" />
+                                                <Square className="h-4 w-4 joyride-service-start" />
                                             </ConfirmButton>
                                         </TooltipTrigger>
                                         <TooltipContent>Stop Container</TooltipContent>

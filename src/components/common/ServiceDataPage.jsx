@@ -152,7 +152,7 @@ export default function ServiceDataPage({
             {/* Main Content Split View */}
             <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-6 min-h-0">
                 {/* Sidebar: Mock List */}
-                <Card className="md:col-span-1 flex flex-col overflow-hidden border-none shadow-md joyride-service-selector">
+                <Card className="md:col-span-1 flex flex-col border-none shadow-md joyride-service-selector">
                     <div className="p-4 border-b bg-muted/30">
                         <h3 className="font-semibold flex items-center gap-2">
                             <FileCode className="h-4 w-4" />
@@ -165,25 +165,37 @@ export default function ServiceDataPage({
                                 <button
                                     key={mock.key}
                                     onClick={() => handleSelectMock(mock.key)}
-                                    className={`w-full text-left px-3 py-3 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${selectedMock === mock.key
+                                    className={`w-full min-w-0 text-left px-3 py-3 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${selectedMock === mock.key
                                         ? 'bg-primary/10 text-primary font-medium border-l-4 border-primary pl-2'
                                         : 'hover:bg-muted text-muted-foreground hover:text-foreground'
                                         }`}
                                 >
-                                    <div className="flex flex-col truncate">
-                                        <span className="truncate">{mock.key}</span>
-                                        <span className="text-[10px] opacity-70 font-mono">
-                                            {getMockSubtitle ? getMockSubtitle(mock.key) : mock.key}
-                                        </span>
-                                    </div>
+                                    <div className="flex flex-col w-full min-w-0">
+                                        <div className="flex items-center min-w-0">
+                                            <span className="truncate pr-2 font-medium flex-1 min-w-0">
+                                                {mock.key}
+                                            </span>
 
-                                    {mock.source === 'memory' ? (
-                                        <Badge variant="outline" className="ml-2 text-[10px] h-5 px-1 bg-amber-500/10 text-amber-600 border-amber-200">
-                                            Modified
-                                        </Badge>
-                                    ) : (
-                                        <div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700 group-hover:bg-slate-300 transition-colors"></div>
-                                    )}
+                                            {mock.source === 'memory' && (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="text-[10px] h-5 px-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-300 dark:border-amber-700 font-medium whitespace-nowrap shrink-0"
+                                                >
+                                                    M
+                                                </Badge>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center mt-1 min-w-0">
+                                            <span className="text-[10px] opacity-70 font-mono truncate flex-1 min-w-0">
+                                                {getMockSubtitle ? getMockSubtitle(mock.key) : mock.key}
+                                            </span>
+
+                                            {mock.source !== 'memory' && (
+                                                <div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700 group-hover:bg-slate-300 transition-colors ml-2 shrink-0" />
+                                            )}
+                                        </div>
+                                    </div>
                                 </button>
                             ))}
                         </div>

@@ -38,10 +38,31 @@ export default function InteractiveDockerGuide() {
             <DrawerContent>
                 <div className="mx-auto w-full max-w-3xl">
                     <DrawerHeader>
-                        <DrawerTitle>Docker Application Guide</DrawerTitle>
+                        <DrawerTitle className={`text-xl font-bold`}>Docker Application Guide</DrawerTitle>
                         <DrawerDescription>Learn what each action does and how to manage the simulator containers.</DrawerDescription>
                     </DrawerHeader>
-                    <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                    <div className="mt-6 border-t pt-4 flex flex-col gap-2 bg-muted p-4 rounded-lg items-center">
+                        <h4 className="font-semibold text-lg mb-3 ml-10 ">Interactive Tutorials</h4>
+                        <div className="flex flex-col sm:flex-row gap-2 justify-between ">
+                            <DrawerClose asChild>
+                                <Button variant="outline" size="sm" onClick={() => handleReplay('/', 'Dashboard', dashboardSteps)} className="cursor-pointer hover:bg-accent bg-blue-400 text-white">
+                                    <Play className="mr-2 h-4 w-4" /> Replay Dashboard Tour
+                                </Button>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                                <Button variant="outline" size="sm" onClick={() => handleReplay('/flight-data', 'FlightData', flightDataSteps)} className="cursor-pointer hover:bg-accent bg-blue-400 text-white">
+                                    <Play className="mr-2 h-4 w-4" /> Replay Services Tour
+                                </Button>
+                            </DrawerClose>
+                            <DrawerClose asChild>
+                                <Button variant="outline" size="sm" onClick={() => handleReplay('/settings', 'Settings', settingsSteps)} className="cursor-pointer hover:bg-accent bg-blue-400 text-white">
+                                    <Play className="mr-2 h-4 w-4" /> Replay Settings Tour
+                                </Button>
+                            </DrawerClose>
+                        </div>
+                    </div>
+
+                    <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto bg-muted p-4 rounded-lg mt-3 ">
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             <div className="rounded-lg border p-4 shadow-sm bg-muted/20">
                                 <h4 className="font-semibold text-primary flex items-center gap-2"><Play className="h-4 w-4" /> Compose Up</h4>
@@ -76,26 +97,7 @@ export default function InteractiveDockerGuide() {
                             </AlertDescription>
                         </Alert>
 
-                        <div className="mt-6 border-t pt-4">
-                            <h4 className="font-semibold text-lg mb-3">Interactive Tutorials</h4>
-                            <div className="flex flex-col sm:flex-row gap-2">
-                                <DrawerClose asChild>
-                                    <Button variant="outline" size="sm" onClick={() => handleReplay('/', 'Dashboard', dashboardSteps)} className="cursor-pointer">
-                                        Replay Dashboard Tour
-                                    </Button>
-                                </DrawerClose>
-                                <DrawerClose asChild>
-                                    <Button variant="outline" size="sm" onClick={() => handleReplay('/flight-data', 'FlightData', flightDataSteps)} className="cursor-pointer">
-                                        Replay Services Tour
-                                    </Button>
-                                </DrawerClose>
-                                <DrawerClose asChild>
-                                    <Button variant="outline" size="sm" onClick={() => handleReplay('/settings', 'Settings', settingsSteps)} className="cursor-pointer">
-                                        Replay Settings Tour
-                                    </Button>
-                                </DrawerClose>
-                            </div>
-                        </div>
+
                     </div>
                     <DrawerFooter>
                         <DrawerClose asChild>

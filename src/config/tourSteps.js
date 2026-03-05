@@ -43,6 +43,14 @@ export const flightDataSteps = addJoyrideProps([
     {
         target: '.joyride-save-btn',
         content: 'Hit "Save Changes" to apply your overrides instantly to the active in-memory cache.',
+    },
+    {
+        target: '.joyride-reset-btn',
+        content: 'If you want to reset the mock data to its original state, Just click "Reset to Default".',
+    },
+    {
+        target: '.joyride-help-btn',
+        content: 'If you ever need a refresher, just click here to replay any of these tutorials!',
     }
 ]);
 
@@ -60,6 +68,10 @@ export const settingsSteps = addJoyrideProps([
     {
         target: '.joyride-service-row',
         content: 'You can also control individual microservices independently right here.',
+    },
+    {
+        target: '.joyride-service-start',
+        content: 'You can "START/STOP" an individual service by clicking this button.',
     },
     {
         target: '.joyride-logs-viewer',

@@ -89,7 +89,7 @@ export default function JsonEditor({
                                     size="sm"
                                     onClick={handleReset}
                                     disabled={loading || mocks.find(m => m.key === selectedMock)?.source !== 'memory'}
-                                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer joyride-reset-btn"
                                 >
                                     <RotateCcw className="mr-2 h-4 w-4" />
                                     Reset to Default
