@@ -10,25 +10,31 @@ import { ScrollArea } from '../../components/ui/scroll-area';
 
 const EVENT_GROUPS = {
     "Flight & Route": [
-        "FLTDATA_FLIGHT_NUMBER", "FLTDATA_AIRBUS_AIRCRAFT_ID",
-        "FLTDATA_DEPARTURE_ID", "FLTDATA_DESTINATION_ID",
+        "FLTDATA_FLIGHT_NUMBER", "FLTDATA_AIRBUS_AIRCRAFT_CODE", "FLTDATA_AIRBUS_AIRCRAFT_ID",
+        "FLTDATA_AIRBUS_FLEET_ID", "FLTDATA_LANGUAGE_ID", "ROUTE_ID",
+        "FLTDATA_DEPARTURE_ID", "FLTDATA_DESTINATION_ID", "FLTDATA_DEPARTURE_BAGGAGE_ID",
         "FLTDATA_DESTINATION_BAGGAGE_ID"
     ],
     "Navigation & Weather": [
         "FLTDATA_ALTITUDE", "FLTDATA_PRESENT_POSITION_LATITUDE", "FLTDATA_PRESENT_POSITION_LONGITUDE",
-        "FLTDATA_DEPARTURE_LATITUDE", "DEST_CITY_TEMP"
+        "FLTDATA_DEPARTURE_LATITUDE", "FLTDATA_DEPARTURE_LONGITUDE", "FLTDATA_DESTINATION_LATITUDE",
+        "FLTDATA_DESTINATION_LONGITUDE", "FLTDATA_GROUND_SPEED", "FLTDATA_HEAD_WIND_SPEED",
+        "FLTDATA_MACH", "FLTDATA_OUTSIDE_AIR_TEMP", "FLTDATA_TRUE_AIR_SPEED", "FLTDATA_TRUE_HEADING",
+        "FLTDATA_WIND_DIRECTION", "FLTDATA_WIND_SPEED", "DEST_CITY_TEMP", "DEST_CITY_WEATHER_ID"
     ],
     "Time & Progress": [
         "FLTDATA_DATE", "FLTDATA_DAY_OF_WEEK", "FLTDATA_GMT", "FLTDATA_ESTIMATED_ARRIVAL_TIME",
-        "FLTDATA_TIME_AT_ORIGIN", "FLTDATA_TIME_AT_TAKEOFF",
-        "FLTDATA_TIME_SINCE_TAKEOFF", "FLTDATA_TIME_TO_DESTINATION",
+        "FLTDATA_TIME_AT_DESTINATION", "FLTDATA_TIME_AT_ORIGIN", "FLTDATA_TIME_AT_TAKEOFF",
+        "FLTDATA_TIME_SINCE_TAKEOFF", "FLTDATA_TIME_TO_DESTINATION", "FLTDATA_TIME_TO_TOP_OF_DESCENT",
         "FLTDATA_DISTANCE_FROM_ORIGIN", "FLTDATA_DISTANCE_TO_DESTINATION",
-        "FLTDATA_DISTANCE_TRAVELED"
+        "FLTDATA_DISTANCE_TO_DESTINATION_AT_TAKEOFF", "FLTDATA_DISTANCE_TRAVELED"
     ],
     "Hardware & Devices": [
-        "BRIGHTNESS_CHANGE"
+        "AUDIO_DEVICE_ADDED", "AUDIO_DEVICE_REMOVED", "BRIGHTNESS_CHANGE",
+        "BLUETOOTH_CONTROL", "CAPSENSE_STATE", "MEDIA_DATE"
     ]
 };
+
 
 // Maps specific events to explicitly labeled boolean-style GUI presets
 const QUICK_ACTIONS = {
@@ -378,7 +384,7 @@ const CrewTerminalPage = () => {
                                     <TabsTrigger
                                         key={groupName}
                                         value={groupName}
-                                        className="px-4 py-2.5 text-sm font-medium rounded-xl flex-1 whitespace-nowrap transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-md border border-transparent data-[state=active]:border-border/50"
+                                        className="px-4 py-2.5 text-sm font-medium rounded-xl flex-1 whitespace-nowrap transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-md border border-transparent data-[state=active]:border-border/50 cursor-pointer"
                                     >
                                         {groupName}
                                     </TabsTrigger>
