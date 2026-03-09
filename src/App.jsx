@@ -8,7 +8,7 @@ import FlightDataPage from './features/flight-data/FlightDataPage';
 import LtnDataPage from './features/ltn/LtnDataPage';
 import AnsDataPage from './features/ans/AnsDataPage';
 import SurveysDataPage from './features/surveys/SurveysDataPage';
-
+import CrewTerminalPage from './features/crew-terminal/CrewTerminalPage';
 
 import { SocketProvider } from './contexts/SocketContext';
 import { ApiProvider } from './contexts/ApiContext';
@@ -30,6 +30,7 @@ function App() {
                   <Route path="ltn" element={<LtnDataPage />} />
                   <Route path="ans" element={<AnsDataPage />} />
                   <Route path="surveys" element={<SurveysDataPage />} />
+                  <Route path="crew-terminal" element={<CrewTerminalPage />} />
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Route>

@@ -10,6 +10,7 @@ import {
     FileText,
     Moon,
     Sun,
+    Terminal,
 } from 'lucide-react';
 import {
     Breadcrumb,
@@ -94,6 +95,12 @@ export default function BaseLayout() {
             icon: Settings,
             items: []
         },
+        {
+            title: "Crew Terminal",
+            url: "/crew-terminal",
+            icon: Terminal,
+            items: []
+        }
     ];
 
     // Helper to find current page name from nested structure
