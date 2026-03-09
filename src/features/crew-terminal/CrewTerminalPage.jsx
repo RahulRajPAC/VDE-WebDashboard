@@ -31,7 +31,7 @@ const EVENT_GROUPS = {
     ],
     "Hardware & Devices": [
         "AUDIO_DEVICE_ADDED", "AUDIO_DEVICE_REMOVED", "BRIGHTNESS_CHANGE",
-        "BLUETOOTH_CONTROL", "CAPSENSE_STATE", "MEDIA_DATE","VOLUME_CHANGE"
+        "BLUETOOTH_CONTROL", "CAPSENSE_STATE", "MEDIA_DATE","VOLUME_CHANGE","ENTERTAINMENT_ON"
     ]
 };
 
@@ -49,6 +49,10 @@ const QUICK_ACTIONS = {
     "CAPSENSE_STATE": [
         { label: "Capsense ON", value: "[1]" },
         { label: "Capsense OFF", value: "[0]" }
+    ],
+    "ENTERTAINMENT_ON":[
+        { label: "Enable", value: "[1]" },
+        { label: "Disable", value: "[0]" }
     ]
 };
 
