@@ -371,7 +371,7 @@ const CrewTerminalPage = () => {
                                     ) : (
                                         <div className="flex flex-col items-center justify-center h-full py-12 text-center text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border/50">
                                             <Search className="h-10 w-10 mb-3 opacity-20" />
-                                            <p className="text-sm font-medium">No modules found matching "{searchQuery}"</p>
+                                            <p className="text-sm font-medium">No Events found matching "{searchQuery}"</p>
                                         </div>
                                     )}
                                 </ScrollArea>
@@ -397,7 +397,7 @@ const CrewTerminalPage = () => {
                                         <CardHeader className="bg-gradient-to-b from-muted/40 to-transparent border-b border-border/40 pb-5 shrink-0 px-6 pt-6">
                                             <CardTitle className="text-xl flex items-center justify-between">
                                                 <span className="font-semibold tracking-tight">{category}</span>
-                                                <Badge variant="secondary" className="font-mono bg-primary/15 text-primary border-primary/20 shadow-sm px-2.5 py-0.5 rounded-full">{events.length} Modules</Badge>
+                                                <Badge variant="secondary" className="font-mono bg-primary/15 text-primary border-primary/20 shadow-sm px-2.5 py-0.5 rounded-full">{events.length} Events</Badge>
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-0 flex-1 overflow-hidden">
@@ -529,7 +529,7 @@ const CrewTerminalPage = () => {
                                         </div>
                                         <h4 className="text-lg font-bold text-foreground mb-2">Awaiting Instructions</h4>
                                         <p className="text-sm text-muted-foreground/80 max-w-[200px] leading-relaxed">
-                                            Select any module from the library to configure its payload bridging sequence.
+                                            Select any Event from the left Panel to configure and trigger the payload.
                                         </p>
                                     </div>
                                 )}
