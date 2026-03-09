@@ -315,7 +315,7 @@ const CrewTerminalPage = () => {
                                         <div className="p-2 rounded-lg bg-primary/20 text-primary">
                                             <Terminal className="h-5 w-5" />
                                         </div>
-                                        <span className="font-semibold tracking-tight">Server Telemetry Logs</span>
+                                        <span className="font-semibold tracking-tight">Pacio Server Logs</span>
                                     </div>
                                     <Button
                                         variant="outline"
