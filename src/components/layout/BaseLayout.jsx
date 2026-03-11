@@ -87,7 +87,7 @@ export default function BaseLayout() {
                 { title: "ANS", url: "/ans", icon: Globe, serviceName: 'ans' },
                 { title: "LTN", url: "/ltn", icon: Activity, serviceName: 'ltn' },
                 { title: "Surveys", url: "/surveys", icon: FileText, serviceName: 'surveys' },
-                { title: "Pacio-Server", url: "/crew-terminal", icon: Terminal, serviceName: 'pacio-server' }, // Assuming crew terminal is the main interface for pacio-server
+                { title: "Pacio-Server", url: "/settings", icon: Terminal, serviceName: 'pacio-server' }, // Assuming crew terminal is the main interface for pacio-server
             ]
         },
         {
@@ -100,8 +100,8 @@ export default function BaseLayout() {
             title: "Crew Terminal",
             icon: Terminal,
             items: [
-                { title: "PACIO-Events", url: "/crew-terminal", icon: Plane},
-                {title: "Messaging", url: "/crew-terminal/messaging", icon: Terminal}
+                { title: "PACIO-Events", url: "/crew-terminal", icon: Plane, },
+                { title: "Messaging", url: "/crew-terminal/messaging", icon: Terminal }
             ]
         }
     ];

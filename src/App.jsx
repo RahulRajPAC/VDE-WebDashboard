@@ -14,7 +14,7 @@ import CrewTerminalMessaging from './features/crew-terminal/CrewTerminalMessagin
 import { SocketProvider } from './contexts/SocketContext';
 import { ApiProvider } from './contexts/ApiContext';
 import { TourProvider } from './contexts/TourContext';
-
+import { Toaster } from 'sonner';
 
 const queryClient = new QueryClient();
 
@@ -38,6 +38,7 @@ function App() {
                   <Route path="/crew-terminal/messaging" element={<CrewTerminalMessaging />} />
                 </Route>
               </Routes>
+              <Toaster position="top-right" richColors />
             </Router>
           </TourProvider>
         </ApiProvider>

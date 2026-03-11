@@ -11,16 +11,20 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 
+import { toast } from 'sonner';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 
 const EVENT_GROUPS = {
-    "Flight & Route": [
-        "X2_PA_STATE","FLTDATA_FLIGHT_NUMBER", "FLTDATA_AIRBUS_AIRCRAFT_CODE", "FLTDATA_AIRBUS_AIRCRAFT_ID",
-        "FLTDATA_AIRBUS_FLEET_ID", "FLTDATA_LANGUAGE_ID", "ROUTE_ID",
-        "FLTDATA_DEPARTURE_ID", "FLTDATA_DESTINATION_ID", "FLTDATA_DEPARTURE_BAGGAGE_ID",
-        "FLTDATA_DESTINATION_BAGGAGE_ID"
+    "Flight": [
+        "X2_PA_STATE", "FLTDATA_FLIGHT_NUMBER", "FLTDATA_AIRBUS_AIRCRAFT_CODE", "FLTDATA_AIRBUS_AIRCRAFT_ID",
+        "FLTDATA_AIRBUS_FLEET_ID", "FLTDATA_LANGUAGE_ID"
+    ],
+    "Route": [
+        "ROUTE_ID", "FLTDATA_DEPARTURE_ID", "FLTDATA_DESTINATION_ID",
+        "FLTDATA_DEPARTURE_BAGGAGE_ID", "FLTDATA_DESTINATION_BAGGAGE_ID"
     ],
     "Navigation": [
         "FLTDATA_ALTITUDE", "FLTDATA_PRESENT_POSITION_LATITUDE", "FLTDATA_PRESENT_POSITION_LONGITUDE",
@@ -107,7 +111,8 @@ const EVENT_METADATA = {
 };
 
 const SIDEBAR_CATEGORIES = [
-    { name: "Flight & Route", icon: Plane, group: "Flight & Route" },
+    { name: "Flight", icon: Plane, group: "Flight" },
+    { name: "Route", icon: MapPin, group: "Route" },
     { name: "Navigation", icon: Compass, group: "Navigation" },
     { name: "Weather", icon: Cloud, group: "Weather" },
     { name: "Time", icon: Clock, group: "Time & Progress" },
@@ -154,21 +159,38 @@ const CrewTerminalPage = () => {
     const [fetchingLogs, setFetchingLogs] = useState(false);
     const [showLogs, setShowLogs] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState(null);
+    const [searchFocused, setSearchFocused] = useState(false);
     const gridScrollRef = useRef(null);
+    const searchInputRef = useRef(null);
 
     // Color palette per category group
     const CATEGORY_COLORS = {
         "Hardware & Devices": { bg: 'bg-violet-50', border: 'border-violet-200', icon: 'text-violet-600', badge: 'bg-violet-100 text-violet-700', header: 'bg-violet-600' },
         "Navigation": { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'text-blue-600', badge: 'bg-blue-100 text-blue-700', header: 'bg-blue-600' },
         "Weather": { bg: 'bg-teal-50', border: 'border-teal-200', icon: 'text-teal-600', badge: 'bg-teal-100 text-teal-700', header: 'bg-teal-600' },
-        "Flight & Route": { bg: 'bg-emerald-50', border: 'border-emerald-200', icon: 'text-emerald-600', badge: 'bg-emerald-100 text-emerald-700', header: 'bg-emerald-600' },
+        "Flight": { bg: 'bg-emerald-50', border: 'border-emerald-200', icon: 'text-emerald-600', badge: 'bg-emerald-100 text-emerald-700', header: 'bg-emerald-600' },
+        "Route": { bg: 'bg-sky-50', border: 'border-sky-200', icon: 'text-sky-600', badge: 'bg-sky-100 text-sky-700', header: 'bg-sky-600' },
         "Time & Progress": { bg: 'bg-amber-50', border: 'border-amber-200', icon: 'text-amber-600', badge: 'bg-amber-100 text-amber-700', header: 'bg-amber-600' },
     };
 
-    // Compute active global filtered results
+    // Robust multi-field search: matches raw key, stripped key, friendly title, and subtitle.
+    // Query is split into tokens — every token must match at least one field (AND logic per token).
     const allEvents = Object.values(EVENT_GROUPS).flat();
-    const filteredEvents = searchQuery
-        ? allEvents.filter(evt => evt.toLowerCase().includes(searchQuery.toLowerCase()) || evt.replace("FLTDATA_", "").toLowerCase().includes(searchQuery.toLowerCase()))
+    const filteredEvents = searchQuery.trim()
+        ? (() => {
+            const tokens = searchQuery.trim().toLowerCase().split(/\s+/);
+            return allEvents.filter(evt => {
+                const meta = EVENT_METADATA[evt];
+                const haystack = [
+                    evt.toLowerCase(),                                          // raw key: X2_PA_STATE
+                    evt.replace(/_/g, ' ').toLowerCase(),                       // spaced key: X2 PA STATE
+                    evt.replace('FLTDATA_', '').replace(/_/g, ' ').toLowerCase(),// stripped: FLIGHT NUMBER
+                    meta?.title?.toLowerCase() ?? '',                           // friendly title: PASSENGER ANNOUNCEMENT
+                    meta?.subtitle?.toLowerCase() ?? '',                        // subtitle: triggers passenger announcement
+                ].join(' ');
+                return tokens.every(token => haystack.includes(token));
+            });
+        })()
         : [];
 
     useEffect(() => {
@@ -229,9 +251,9 @@ const CrewTerminalPage = () => {
         }
     };
 
-    const handleFireEvent = async (eventName, useDefault = true, overridePayload = null) => {
+    const handleFireEvent = async (eventName, useDefault = true, overridePayload = null, silent = false) => {
         setLoading(true);
-        setStatus({ type: '', message: '' });
+        if (!silent) setStatus({ type: '', message: '' });
 
         try {
             const body = { eventName };
@@ -265,14 +287,20 @@ const CrewTerminalPage = () => {
 
             const data = await response.json();
 
+            const resultMessage = response.ok ? `Successfully fired: ${eventName}` : (data.error || `Failed to trigger event: ${eventName}`);
             if (response.ok) {
-                setStatus({ type: 'success', message: `Successfully fired: ${eventName}` });
-                setTimeout(() => setStatus({ type: '', message: '' }), 4000);
+                if (!silent) {
+                    toast.success(resultMessage);
+                }
+                return { ok: true, message: resultMessage };
             } else {
-                setStatus({ type: 'error', message: data.error || 'Failed to trigger event' });
+                if (!silent) toast.error(resultMessage);
+                return { ok: false, message: resultMessage };
             }
         } catch (error) {
-            setStatus({ type: 'error', message: 'Could not connect to PAC Server.' });
+            const errMsg = 'Could not connect to PAC Server.';
+            if (!silent) toast.error(errMsg);
+            return { ok: false, message: errMsg };
         } finally {
             setLoading(false);
         }
@@ -286,59 +314,46 @@ const CrewTerminalPage = () => {
             <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
 
                 {/* Header */}
-                <div className="h-[72px] bg-white dark:bg-slate-900 border-b border-[#e2e8f0] dark:border-slate-700/60 flex items-center justify-between px-8 shrink-0">
+                <div className="h-[100px] bg-blue-500 rounded-lg mb-6 dark:bg-blue-500  border-b border-[#e2e8f0] dark:border-slate-700/60 flex items-center justify-between px-8 shrink-0">
                     <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-slate-900 dark:bg-slate-700">
-                                <Terminal className="w-4 h-4 text-white" />
-                            </div>
-                            <h1 className="text-[20px] font-bold text-[#1e293b] dark:text-white tracking-tight">Crew Terminal</h1>
+                        <div className="flex flex-col justify">
+                            <h1 className="text-2xl font-extrabold tracking-tight text-white m-0 leading-tight">PACIO Events</h1>
+                            <p className="text-[13px] text-blue-50 mt-1 m-0">Compose and broadcast <span className="font-mono text-white opacity-90 px-1 py-0.5 bg-white/20 rounded">Events</span>to seat displays.</p>
                         </div>
-                        {/* Status toast — right of title */}
-                        {status.message && (
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold border ${status.type === 'success'
-                                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300'
-                                : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
-                                }`}>
-                                {status.type === 'success'
-                                    ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                                    : <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                                }
-                                <span>{status.message}</span>
-                            </div>
-                        )}
                     </div>
 
+
                     {/* Unified status card */}
-                    <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                    <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm shrink-0 min-h-[72px]">
 
                         {/* Flight Status */}
-                        <div className={`flex items-center gap-2 px-4 py-2.5 border-r border-slate-200 dark:border-slate-700 ${isFlightOpen ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-red-50 dark:bg-red-950/40'}`}>
-                            <span className="relative flex h-2 w-2">
+                        <div className={`flex items-center gap-3 px-5 py-2.5 h-full border-r border-slate-200 dark:border-slate-700 ${isFlightOpen ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-red-50 dark:bg-red-950/40'}`}>
+                            <span className="relative flex h-2 w-2 shadow-[0_0_8px_rgba(0,0,0,0.1)] rounded-full">
                                 <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${isFlightOpen ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
                                 <span className={`relative inline-flex rounded-full h-2 w-2 ${isFlightOpen ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                             </span>
                             <div className="flex flex-col leading-none">
-                                <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Flight</span>
-                                <span className={`text-[13px] font-extrabold ${isFlightOpen ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
+                                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Flight</span>
+                                <span className={`text-[13px] font-extrabold mt-0.5 ${isFlightOpen ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
                                     {isFlightOpen ? 'OPEN' : 'CLOSED'}
                                 </span>
                             </div>
                         </div>
 
                         {/* Connected clients */}
-                        <div className="flex items-center gap-2 px-4 py-2.5 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                            <span className="relative flex h-2 w-2">
+                        <div className="flex items-center gap-3 px-5 py-2.5 h-full border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                            <span className="relative flex h-2 w-2 shadow-[0_0_8px_rgba(0,0,0,0.1)] rounded-full">
                                 <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${clientsConnected > 0 ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
                                 <span className={`relative inline-flex rounded-full h-2 w-2 ${clientsConnected > 0 ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                             </span>
                             <div className="flex flex-col leading-none">
-                                <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Clients</span>
-                                <span className={`text-[13px] font-extrabold ${clientsConnected > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
+                                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Clients</span>
+                                <span className={`text-[13px] font-extrabold mt-0.5 ${clientsConnected > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
                                     {clientsConnected} Connected
                                 </span>
                             </div>
                         </div>
+
 
                         {/* Server Logs button */}
                         <Dialog open={showLogs} onOpenChange={(open) => {
@@ -346,11 +361,11 @@ const CrewTerminalPage = () => {
                             setShowLogs(open);
                         }}>
                             <DialogTrigger asChild>
-                                <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer">
-                                    <Activity className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                                <button className="flex items-center gap-3 px-5 py-2.5 h-full bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer border-0 outline-none">
+                                    <Activity className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                                     <div className="flex flex-col leading-none text-left">
-                                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">View</span>
-                                        <span className="text-[13px] font-extrabold text-slate-700 dark:text-slate-200">Server Logs</span>
+                                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">View</span>
+                                        <span className="text-[13px] font-extrabold text-slate-700 dark:text-slate-200 mt-0.5">Server Logs</span>
                                     </div>
                                 </button>
                             </DialogTrigger>
@@ -358,20 +373,20 @@ const CrewTerminalPage = () => {
                                 <DialogHeader className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 p-5 px-6 shrink-0">
                                     <DialogTitle className="text-lg flex items-center justify-between w-full pr-8">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200/50">
                                                 <Terminal className="h-4 w-4" />
                                             </div>
                                             <span className="font-bold tracking-tight text-slate-800 dark:text-white">Pacio Server Logs</span>
                                         </div>
-                                        <Button variant="outline" size="sm" onClick={fetchServerLogs} disabled={fetchingLogs} className="text-[13px] rounded-lg px-4">
+                                        <Button variant="outline" size="sm" onClick={fetchServerLogs} disabled={fetchingLogs} className="text-[13px] rounded-lg px-4 cursor-pointer hover:bg-slate-100 transition-colors">
                                             {fetchingLogs ? 'Refreshing...' : 'Refresh Logs'}
                                         </Button>
                                     </DialogTitle>
                                 </DialogHeader>
                                 <div className="flex-1 overflow-hidden bg-[#0f172a]">
-                                    <ScrollArea className="h-full w-full">
-                                        <pre className="font-mono text-xs p-6 text-slate-300 break-words whitespace-pre-wrap leading-relaxed">
-                                            {serverLogs || (fetchingLogs ? 'Fetching logs...' : 'No logs loaded. Click Refresh.')}
+                                    <ScrollArea className="h-full w-full text-left">
+                                        <pre className="font-mono text-[11px] p-6 text-slate-300 break-words whitespace-pre-wrap leading-relaxed">
+                                            {serverLogs}
                                         </pre>
                                     </ScrollArea>
                                 </div>
@@ -379,7 +394,6 @@ const CrewTerminalPage = () => {
                         </Dialog>
                     </div>
                 </div>
-
 
                 {/* Quick Controls — always visible, directly below header */}
                 <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-[#e2e8f0] dark:border-slate-700/60 px-6 py-3 flex gap-4">
@@ -394,7 +408,38 @@ const CrewTerminalPage = () => {
                         </div>
                         <div className="flex items-center gap-2">
                             {isFlightOpen ? (
-                                <button onClick={() => handleFireEvent("OPEN_FLIGHT", false, "[0]")} disabled={loading} className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-300 text-[12px] font-bold hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer">
+                                <button
+                                    onClick={async () => {
+                                        const res1 = await handleFireEvent("OPEN_FLIGHT", false, "[0]");
+                                        if (res1 && res1.ok) {
+                                            setIsFlightOpen(false);
+                                        }
+                                        const messages = [];
+                                        if (res1) messages.push(res1.message);
+
+                                        // if entertainment (IFE) is on, turn it off silently but include its message
+                                        let res2;
+                                        if (isIFEOn) {
+                                            res2 = await handleFireEvent("ENTERTAINMENT_ON", false, "[0]", true);
+                                            if (res2 && res2.ok) setIsIFEOn(false);
+                                            if (res2) messages.push(res2.message);
+                                        }
+
+                                        // show combined result(s)
+                                        if (messages.length > 0) {
+                                            const combined = messages.join(' | ');
+                                            // Determine overall type: success if all ok
+                                            const allOk = (res1 ? res1.ok : false) && (isIFEOn ? (res2 ? res2.ok : false) : true);
+                                            if (allOk) {
+                                                toast.success(combined);
+                                            } else {
+                                                toast.error(combined);
+                                            }
+                                        }
+                                    }}
+                                    disabled={loading}
+                                    className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-300 text-[12px] font-bold hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+                                >
                                     <AlertCircle className="w-3 h-3" /> Close Flight
                                 </button>
                             ) : (
@@ -415,7 +460,7 @@ const CrewTerminalPage = () => {
                         <div className="flex items-center gap-2">
                             {isIFEOn ? (
                                 <button
-                                    onClick={() => { handleFireEvent("ENTERTAINMENT_ON", false, "[0]"); setIsIFEOn(false); }}
+                                    onClick={async () => { await handleFireEvent("ENTERTAINMENT_ON", false, "[0]"); setIsIFEOn(false); }}
                                     disabled={loading}
                                     className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-300 text-[12px] font-bold hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer"
                                 >
@@ -423,7 +468,7 @@ const CrewTerminalPage = () => {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => { handleFireEvent("ENTERTAINMENT_ON", false, "[1]"); setIsIFEOn(true); }}
+                                    onClick={async () => { await handleFireEvent("ENTERTAINMENT_ON", false, "[1]"); setIsIFEOn(true); }}
                                     disabled={loading}
                                     className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-[12px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors disabled:opacity-50 cursor-pointer"
                                 >
@@ -452,7 +497,7 @@ const CrewTerminalPage = () => {
                         <div className="flex items-center gap-2">
                             {isPAOn ? (
                                 <button
-                                    onClick={() => { handleFireEvent("X2_PA_STATE", false, "[0]"); setIsPAOn(false); }}
+                                    onClick={async () => { await handleFireEvent("X2_PA_STATE", false, "[0]"); setIsPAOn(false); }}
                                     disabled={loading}
                                     className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-300 text-[12px] font-bold hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer"
                                 >
@@ -460,7 +505,7 @@ const CrewTerminalPage = () => {
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => { handleFireEvent("X2_PA_STATE", false, "[1]"); setIsPAOn(true); }}
+                                    onClick={async () => { await handleFireEvent("X2_PA_STATE", false, "[1]"); setIsPAOn(true); }}
                                     disabled={loading}
                                     className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-[12px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors disabled:opacity-50 cursor-pointer"
                                 >
@@ -481,19 +526,39 @@ const CrewTerminalPage = () => {
 
                 </div>
 
-                {/* Category Nav + Search — single combined strip */}
+                {/* Category Nav + Search — bold, tall, distinctive horizontal nav */}
                 {isFlightOpen ?
                     (
                         <>
-                            <div className="bg-white dark:bg-slate-900 border-b border-[#e2e8f0] dark:border-slate-700/60 shrink-0 flex items-center h-[52px] px-4 gap-3">
+                            {/* ══ Category Nav Bar ══ */}
+                            <div className="shrink-0 border-b border-slate-200 dark:border-slate-700/80 flex items-stretch gap-0 px-4 h-[76px] relative rounded-md"
+                                style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)' }}>
 
-                                {/* Scrollable tabs — doesn't stretch full width */}
-                                <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar min-w-0 flex-shrink">
-                                    {SIDEBAR_CATEGORIES.map(category => {
+                                {/* Left: Category Card Tabs — hidden when search is focused */}
+                                <div
+                                    className="flex items-stretch gap-2 overflow-x-auto hide-scrollbar min-w-0 py-3 pr-4 transition-all duration-300"
+                                    style={{
+                                        flex: searchFocused ? '0 0 0px' : '1 1 0px',
+                                        opacity: searchFocused ? 0 : 1,
+                                        pointerEvents: searchFocused ? 'none' : 'auto',
+                                        overflow: 'hidden',
+                                    }}
+                                >
+                                    {SIDEBAR_CATEGORIES.map((category, idx) => {
                                         const groupEvents = EVENT_GROUPS[category.group] || [];
                                         const isActive = selectedCategory !== null
                                             ? selectedCategory === category.name
                                             : groupEvents.includes(selectedEvent);
+
+                                        // Per-category accent config
+                                        const ACCENT = [
+                                            { border: '#3b82f6', glow: 'rgba(59,130,246,0.35)', bg: 'rgba(59,130,246,0.15)', iconColor: '#93c5fd', labelColor: '#bfdbfe', badgeBg: '#1d4ed8', activeLabelColor: '#fff' },
+                                            { border: '#10b981', glow: 'rgba(16,185,129,0.35)', bg: 'rgba(16,185,129,0.15)', iconColor: '#6ee7b7', labelColor: '#a7f3d0', badgeBg: '#065f46', activeLabelColor: '#fff' },
+                                            { border: '#14b8a6', glow: 'rgba(20,184,166,0.35)', bg: 'rgba(20,184,166,0.15)', iconColor: '#5eead4', labelColor: '#99f6e4', badgeBg: '#0f766e', activeLabelColor: '#fff' },
+                                            { border: '#f59e0b', glow: 'rgba(245,158,11,0.35)', bg: 'rgba(245,158,11,0.15)', iconColor: '#fcd34d', labelColor: '#fde68a', badgeBg: '#92400e', activeLabelColor: '#fff' },
+                                            { border: '#8b5cf6', glow: 'rgba(139,92,246,0.35)', bg: 'rgba(139,92,246,0.15)', iconColor: '#c4b5fd', labelColor: '#ddd6fe', badgeBg: '#4c1d95', activeLabelColor: '#fff' },
+                                        ][idx % 5];
+
                                         return (
                                             <button
                                                 key={category.name}
@@ -506,31 +571,114 @@ const CrewTerminalPage = () => {
                                                         gridScrollRef.current.scrollTop += (elTop - containerTop) - 16;
                                                     }
                                                 }}
-                                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${isActive
-                                                    ? 'bg-blue-600 text-white shadow-sm'
-                                                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100'
-                                                    }`}
+                                                style={isActive ? {
+                                                    background: ACCENT.bg,
+                                                    borderTop: `2.5px solid ${ACCENT.border}`,
+                                                    boxShadow: `0 0 20px ${ACCENT.glow}, inset 0 1px 0 rgba(255,255,255,0.10)`,
+                                                    borderLeft: `1px solid ${ACCENT.border}50`,
+                                                    borderRight: `1px solid ${ACCENT.border}30`,
+                                                    borderBottom: `1px solid ${ACCENT.border}20`,
+                                                } : {
+                                                    background: '#2d3748',
+                                                    borderTop: `2.5px solid rgba(255,255,255,0.12)`,
+                                                    borderLeft: `1px solid rgba(255,255,255,0.12)`,
+                                                    borderRight: `1px solid rgba(255,255,255,0.12)`,
+                                                    borderBottom: `1px solid rgba(255,255,255,0.06)`,
+                                                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
+                                                }}
+                                                className={`
+                                                    flex items-center gap-3 px-5 rounded-xl text-left
+                                                    transition-all duration-200 shrink-0 cursor-pointer select-none whitespace-nowrap
+                                                    ${isActive ? 'scale-[1.02]' : 'hover:brightness-125 hover:scale-[1.01]'}
+                                                `}
                                             >
-                                                <category.icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                                                {category.name}
+                                                {/* Icon */}
+                                                <div
+                                                    style={isActive
+                                                        ? { background: ACCENT.bg, border: `1px solid ${ACCENT.border}40` }
+                                                        : { background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.15)' }
+                                                    }
+                                                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all"
+                                                >
+                                                    <category.icon
+                                                        className="w-[18px] h-[18px]"
+                                                        style={{ color: isActive ? ACCENT.iconColor : '#cbd5e1' }}
+                                                    />
+                                                </div>
+
+                                                {/* Label + count */}
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span
+                                                        className="text-[13px] font-extrabold tracking-wide leading-none"
+                                                        style={{ color: isActive ? ACCENT.activeLabelColor : '#e2e8f0' }}
+                                                    >
+                                                        {category.name}
+                                                    </span>
+                                                    <span
+                                                        className="text-[11px] font-semibold leading-none mt-1"
+                                                        style={{ color: isActive ? ACCENT.labelColor : '#94a3b8' }}
+                                                    >
+                                                        {groupEvents.length} events
+                                                    </span>
+                                                </div>
                                             </button>
                                         );
                                     })}
                                 </div>
-                                {/* Search — pinned right, fixed width */}
-                                <div className="ml-auto shrink-0 flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-400 focus-within:border-blue-400 rounded-lg px-3 h-8 transition-all w-52 gap-2">
-                                    <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                    <Input
-                                        placeholder="Search events..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 text-[12.5px] font-medium placeholder:text-slate-400 h-full w-full"
-                                    />
-                                    {searchQuery && (
-                                        <Badge variant="secondary" className="font-mono text-[10px] bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 border-transparent shrink-0">
-                                            {filteredEvents.length}
-                                        </Badge>
-                                    )}
+
+                                {/* Divider — hidden when search expanded */}
+                                <div
+                                    className="my-3 bg-slate-700/80 shrink-0 transition-all duration-300"
+                                    style={{ width: searchFocused ? '0px' : '1px', opacity: searchFocused ? 0 : 1 }}
+                                />
+
+                                {/* Right: Search bar — expands to full width on focus */}
+                                <div
+                                    className="flex items-center py-3 transition-all duration-300"
+                                    style={{
+                                        flex: searchFocused ? '1 1 auto' : '0 0 auto',
+                                        paddingLeft: searchFocused ? '0' : '16px',
+                                        paddingRight: '0',
+                                    }}
+                                >
+                                    <div
+                                        className="flex items-center rounded-xl px-3.5 h-10 gap-2.5 group transition-all duration-300 w-full"
+                                        style={searchFocused ? {
+                                            background: 'rgba(37,99,235,0.12)',
+                                            border: '1.5px solid #3b82f6',
+                                            boxShadow: '0 0 0 3px rgba(59,130,246,0.15)',
+                                        } : {
+                                            background: 'rgba(30,41,59,0.8)',
+                                            border: '1px solid rgba(100,116,139,0.6)',
+                                        }}
+                                    >
+                                        <Search
+                                            className="h-4 w-4 shrink-0 transition-colors duration-200"
+                                            style={{ color: searchFocused ? '#60a5fa' : '#64748b' }}
+                                        />
+                                        <Input
+                                            ref={searchInputRef}
+                                            placeholder={searchFocused ? 'Type to search across all events...' : 'Search events...'}
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            onFocus={() => setSearchFocused(true)}
+                                            onBlur={() => { if (!searchQuery) setSearchFocused(false); }}
+                                            onKeyDown={(e) => { if (e.key === 'Escape') { setSearchFocused(false); setSearchQuery(''); } }}
+                                            className="border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 font-medium placeholder:text-slate-500 text-slate-100 h-full w-full transition-all duration-200"
+                                            style={{ fontSize: searchFocused ? '14px' : '13px' }}
+                                        />
+                                        {searchQuery && (
+                                            <>
+                                                <Badge variant="secondary" className="font-mono text-[10px] bg-blue-600 text-white border-transparent shrink-0 px-1.5">
+                                                    {filteredEvents.length}
+                                                </Badge>
+                                                <button
+                                                    onClick={() => { setSearchQuery(''); setSearchFocused(false); searchInputRef.current?.blur(); }}
+                                                    className="text-slate-400 hover:text-white text-[11px] font-bold shrink-0 ml-1 cursor-pointer"
+                                                >✕</button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -629,7 +777,7 @@ const CrewTerminalPage = () => {
 
                                             <div className="p-5 space-y-5">
                                                 <div>
-                                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Payload</label>
+                                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">PARAMS</label>
                                                     <Input
                                                         placeholder='e.g., ["35000"] or [1]'
                                                         value={customParamParams}
@@ -791,7 +939,7 @@ const CrewTerminalPage = () => {
 
                 }
             </div>
-        </div>
+        </div >
     );
 };
 
@@ -807,7 +955,7 @@ const EventCard = ({ evt, meta, isSelected, onClick }) => (
             <div className={`p-2.5 rounded-xl transition-colors ${isSelected ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-500 group-hover:bg-blue-50/60 group-hover:text-blue-500'}`}>
                 <meta.Icon className="w-5 h-5" />
             </div>
-            
+
         </div>
         <div>
             <p className="text-[13px] font-extrabold tracking-tight text-slate-800 leading-tight">{meta.title}</p>
