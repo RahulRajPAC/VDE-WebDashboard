@@ -1,5 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Terminal, Send, CheckCircle2, AlertCircle, Info, Search } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    Terminal, Send, CheckCircle2, AlertCircle, Info, Search,
+    Headphones, Sun, Bluetooth, Volume2, Users, Clock,
+    Activity, Cloud, Plane, MapPin, Gauge, CloudRain,
+    ActivitySquare, MonitorPlay, Thermometer, Calendar, Compass, AlignLeft,
+    PlayCircle
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -7,19 +13,23 @@ import { Badge } from '../../components/ui/badge';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ScrollArea } from '../../components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 
 const EVENT_GROUPS = {
     "Flight & Route": [
-        "FLTDATA_FLIGHT_NUMBER", "FLTDATA_AIRBUS_AIRCRAFT_CODE", "FLTDATA_AIRBUS_AIRCRAFT_ID",
+        "X2_PA_STATE","FLTDATA_FLIGHT_NUMBER", "FLTDATA_AIRBUS_AIRCRAFT_CODE", "FLTDATA_AIRBUS_AIRCRAFT_ID",
         "FLTDATA_AIRBUS_FLEET_ID", "FLTDATA_LANGUAGE_ID", "ROUTE_ID",
         "FLTDATA_DEPARTURE_ID", "FLTDATA_DESTINATION_ID", "FLTDATA_DEPARTURE_BAGGAGE_ID",
         "FLTDATA_DESTINATION_BAGGAGE_ID"
     ],
-    "Navigation & Weather": [
+    "Navigation": [
         "FLTDATA_ALTITUDE", "FLTDATA_PRESENT_POSITION_LATITUDE", "FLTDATA_PRESENT_POSITION_LONGITUDE",
         "FLTDATA_DEPARTURE_LATITUDE", "FLTDATA_DEPARTURE_LONGITUDE", "FLTDATA_DESTINATION_LATITUDE",
-        "FLTDATA_DESTINATION_LONGITUDE", "FLTDATA_GROUND_SPEED", "FLTDATA_HEAD_WIND_SPEED",
-        "FLTDATA_MACH", "FLTDATA_OUTSIDE_AIR_TEMP", "FLTDATA_TRUE_AIR_SPEED", "FLTDATA_TRUE_HEADING",
+        "FLTDATA_DESTINATION_LONGITUDE", "FLTDATA_GROUND_SPEED",
+        "FLTDATA_MACH", "FLTDATA_TRUE_AIR_SPEED", "FLTDATA_TRUE_HEADING"
+    ],
+    "Weather": [
+        "FLTDATA_HEAD_WIND_SPEED", "FLTDATA_OUTSIDE_AIR_TEMP",
         "FLTDATA_WIND_DIRECTION", "FLTDATA_WIND_SPEED", "DEST_CITY_TEMP", "DEST_CITY_WEATHER_ID"
     ],
     "Time & Progress": [
@@ -31,9 +41,78 @@ const EVENT_GROUPS = {
     ],
     "Hardware & Devices": [
         "AUDIO_DEVICE_ADDED", "AUDIO_DEVICE_REMOVED", "BRIGHTNESS_CHANGE",
-        "BLUETOOTH_CONTROL", "CAPSENSE_STATE", "MEDIA_DATE","VOLUME_CHANGE","ENTERTAINMENT_ON"
+        "BLUETOOTH_CONTROL", "CAPSENSE_STATE", "MEDIA_DATE", "VOLUME_CHANGE", "ENTERTAINMENT_ON",
     ]
 };
+
+// New mapping object for friendly UI rendering of events
+const EVENT_METADATA = {
+    // Hardware & Devices
+    "AUDIO_DEVICE_ADDED": { title: "AUDIO DEVICE ADDED", subtitle: "Simulate device connect", Icon: Headphones },
+    "AUDIO_DEVICE_REMOVED": { title: "AUDIO DEVICE REMOVED", subtitle: "Simulate device disconnect", Icon: Headphones },
+    "BRIGHTNESS_CHANGE": { title: "BRIGHTNESS CHANGE", subtitle: "Adjust screen brightness", Icon: Sun },
+    "BLUETOOTH_CONTROL": { title: "BLUETOOTH CONTROL", subtitle: "Simulate Bluetooth state change", Icon: Bluetooth },
+    "VOLUME_CHANGE": { title: "VOLUME CHANGE", subtitle: "Adjust audio volume", Icon: Volume2 },
+    "CAPSENSE_STATE": { title: "CAPSENSE STATE", subtitle: "Toggle capacitive buttons", Icon: ActivitySquare },
+    "ENTERTAINMENT_ON": { title: "ENTERTAINMENT", subtitle: "Toggle IFE Screen Status", Icon: MonitorPlay },
+    "MEDIA_DATE": { title: "MEDIA DATE", subtitle: "Set media playback date", Icon: Calendar },
+
+    // Flight & Route
+    "X2_PA_STATE": { title: "PASSENGER ANNOUNCEMENT", subtitle: "Triggers passenger announcement", Icon: Users },
+    "FLTDATA_FLIGHT_NUMBER": { title: "FLIGHT NUMBER", subtitle: "Update active flight number", Icon: Plane },
+    "FLTDATA_AIRBUS_AIRCRAFT_CODE": { title: "AIRBUS AIRCRAFT CODE", subtitle: "Set aircraft code", Icon: Plane },
+    "FLTDATA_AIRBUS_AIRCRAFT_ID": { title: "AIRBUS AIRCRAFT ID", subtitle: "Set aircraft ID", Icon: Plane },
+    "FLTDATA_AIRBUS_FLEET_ID": { title: "AIRBUS FLEET ID", subtitle: "Set fleet ID", Icon: Users },
+    "FLTDATA_LANGUAGE_ID": { title: "LANGUAGE ID", subtitle: "Set active language", Icon: AlignLeft },
+    "ROUTE_ID": { title: "ROUTE ID", subtitle: "Update current route", Icon: MapPin },
+    "FLTDATA_DEPARTURE_ID": { title: "DEPARTURE ID", subtitle: "Set departure airport code", Icon: Plane },
+    "FLTDATA_DESTINATION_ID": { title: "DESTINATION ID", subtitle: "Set destination airport code", Icon: Plane },
+    "FLTDATA_DEPARTURE_BAGGAGE_ID": { title: "DEPARTURE BAGGAGE ID", subtitle: "Set departure baggage ID", Icon: Plane },
+    "FLTDATA_DESTINATION_BAGGAGE_ID": { title: "DESTINATION BAGGAGE ID", subtitle: "Set destination baggage ID", Icon: Plane },
+
+    // Navigation & Weather
+    "FLTDATA_ALTITUDE": { title: "ALTITUDE", subtitle: "Update altitude", Icon: Activity },
+    "FLTDATA_PRESENT_POSITION_LATITUDE": { title: "PRESENT POSITION LATITUDE", subtitle: "Update latitude", Icon: MapPin },
+    "FLTDATA_PRESENT_POSITION_LONGITUDE": { title: "PRESENT POSITION LONGITUDE", subtitle: "Update longitude", Icon: MapPin },
+    "FLTDATA_DEPARTURE_LATITUDE": { title: "DEPARTURE LATITUDE", subtitle: "Set departure latitude", Icon: MapPin },
+    "FLTDATA_DEPARTURE_LONGITUDE": { title: "DEPARTURE LONGITUDE", subtitle: "Set departure longitude", Icon: MapPin },
+    "FLTDATA_DESTINATION_LATITUDE": { title: "DESTINATION LATITUDE", subtitle: "Set destination latitude", Icon: MapPin },
+    "FLTDATA_DESTINATION_LONGITUDE": { title: "DESTINATION LONGITUDE", subtitle: "Set destination longitude", Icon: MapPin },
+    "FLTDATA_GROUND_SPEED": { title: "GROUND SPEED", subtitle: "Update ground speed", Icon: Gauge },
+    "FLTDATA_HEAD_WIND_SPEED": { title: "HEAD WIND SPEED", subtitle: "Update head wind speed", Icon: CloudRain },
+    "FLTDATA_MACH": { title: "MACH SPEED", subtitle: "Update mach speed", Icon: Gauge },
+    "FLTDATA_OUTSIDE_AIR_TEMP": { title: "OUTSIDE AIR TEMP", subtitle: "Update outside air temp", Icon: Thermometer },
+    "FLTDATA_TRUE_AIR_SPEED": { title: "TRUE AIR SPEED", subtitle: "Update true air speed", Icon: Gauge },
+    "FLTDATA_TRUE_HEADING": { title: "TRUE HEADING", subtitle: "Update true heading", Icon: Compass },
+    "FLTDATA_WIND_DIRECTION": { title: "WIND DIRECTION", subtitle: "Update wind direction", Icon: Compass },
+    "FLTDATA_WIND_SPEED": { title: "WIND SPEED", subtitle: "Update wind speed", Icon: CloudRain },
+    "DEST_CITY_TEMP": { title: "DEST CITY TEMP", subtitle: "Set destination city temp", Icon: Thermometer },
+    "DEST_CITY_WEATHER_ID": { title: "DEST CITY WEATHER ID", subtitle: "Set destination weather ID", Icon: Cloud },
+
+    // Time & Progress
+    "FLTDATA_DATE": { title: "DATE", subtitle: "Update current date", Icon: Calendar },
+    "FLTDATA_DAY_OF_WEEK": { title: "DAY OF WEEK", subtitle: "Update day of week", Icon: Calendar },
+    "FLTDATA_GMT": { title: "GMT", subtitle: "Update GMT time", Icon: Clock },
+    "FLTDATA_ESTIMATED_ARRIVAL_TIME": { title: "ETA", subtitle: "Update estimated arrival", Icon: Clock },
+    "FLTDATA_TIME_AT_DESTINATION": { title: "TIME AT DESTINATION", subtitle: "Update time at destination", Icon: Clock },
+    "FLTDATA_TIME_AT_ORIGIN": { title: "TIME AT ORIGIN", subtitle: "Update time at origin", Icon: Clock },
+    "FLTDATA_TIME_AT_TAKEOFF": { title: "TIME AT TAKEOFF", subtitle: "Update time at takeoff", Icon: Clock },
+    "FLTDATA_TIME_SINCE_TAKEOFF": { title: "TIME SINCE TAKEOFF", subtitle: "Update time elapsed", Icon: Clock },
+    "FLTDATA_TIME_TO_DESTINATION": { title: "TIME TO DESTINATION", subtitle: "Update time remaining", Icon: Clock },
+    "FLTDATA_TIME_TO_TOP_OF_DESCENT": { title: "TIME TO DESCENT", subtitle: "Update time to descent", Icon: Clock },
+    "FLTDATA_DISTANCE_FROM_ORIGIN": { title: "DISTANCE FROM ORIGIN", subtitle: "Update distance traveled", Icon: Activity },
+    "FLTDATA_DISTANCE_TO_DESTINATION": { title: "DISTANCE TO DESTINATION", subtitle: "Update distance remaining", Icon: Activity },
+    "FLTDATA_DISTANCE_TO_DESTINATION_AT_TAKEOFF": { title: "DISTANCE TO DESTINATION AT TAKEOFF", subtitle: "Update total distance", Icon: Activity },
+    "FLTDATA_DISTANCE_TRAVELED": { title: "DISTANCE TRAVELED", subtitle: "Update distance traveled", Icon: Activity }
+};
+
+const SIDEBAR_CATEGORIES = [
+    { name: "Flight & Route", icon: Plane, group: "Flight & Route" },
+    { name: "Navigation", icon: Compass, group: "Navigation" },
+    { name: "Weather", icon: Cloud, group: "Weather" },
+    { name: "Time", icon: Clock, group: "Time & Progress" },
+    { name: "Hardware", icon: Headphones, group: "Hardware & Devices" }
+];
 
 
 // Maps specific events to explicitly labeled boolean-style GUI presets
@@ -50,9 +129,13 @@ const QUICK_ACTIONS = {
         { label: "Capsense ON", value: "[1]" },
         { label: "Capsense OFF", value: "[0]" }
     ],
-    "ENTERTAINMENT_ON":[
+    "ENTERTAINMENT_ON": [
         { label: "Enable", value: "[1]" },
         { label: "Disable", value: "[0]" }
+    ],
+    "X2_PA_STATE": [
+        { label: "PA ON", value: "[1]" },
+        { label: "PA OFF", value: "[0]" }
     ]
 };
 
@@ -64,10 +147,23 @@ const CrewTerminalPage = () => {
     const [loading, setLoading] = useState(false);
     const [clientsConnected, setClientsConnected] = useState(0);
     const [isFlightOpen, setIsFlightOpen] = useState(false);
+    const [isIFEOn, setIsIFEOn] = useState(false);
+    const [isPAOn, setIsPAOn] = useState(false);
     const [defaultParamsMapping, setDefaultParamsMapping] = useState({});
     const [serverLogs, setServerLogs] = useState('');
     const [fetchingLogs, setFetchingLogs] = useState(false);
     const [showLogs, setShowLogs] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const gridScrollRef = useRef(null);
+
+    // Color palette per category group
+    const CATEGORY_COLORS = {
+        "Hardware & Devices": { bg: 'bg-violet-50', border: 'border-violet-200', icon: 'text-violet-600', badge: 'bg-violet-100 text-violet-700', header: 'bg-violet-600' },
+        "Navigation": { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'text-blue-600', badge: 'bg-blue-100 text-blue-700', header: 'bg-blue-600' },
+        "Weather": { bg: 'bg-teal-50', border: 'border-teal-200', icon: 'text-teal-600', badge: 'bg-teal-100 text-teal-700', header: 'bg-teal-600' },
+        "Flight & Route": { bg: 'bg-emerald-50', border: 'border-emerald-200', icon: 'text-emerald-600', badge: 'bg-emerald-100 text-emerald-700', header: 'bg-emerald-600' },
+        "Time & Progress": { bg: 'bg-amber-50', border: 'border-amber-200', icon: 'text-amber-600', badge: 'bg-amber-100 text-amber-700', header: 'bg-amber-600' },
+    };
 
     // Compute active global filtered results
     const allEvents = Object.values(EVENT_GROUPS).flat();
@@ -183,368 +279,541 @@ const CrewTerminalPage = () => {
     };
 
     return (
-        <div className="space-y-8 max-w-7xl mx-auto pb-16 relative">
-            {/* Ambient Background Glows */}
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none -z-10" />
-            <div className="absolute top-1/2 right-1/4 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+        <div className="flex h-screen w-full bg-[#f8fafc] dark:bg-slate-950 overflow-hidden font-sans text-slate-800 dark:text-slate-100">
 
-            {/* Header Section */}
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-border/40 pb-6 relative">
-                <div className="relative z-10">
-                    <div className="inline-flex items-center justify-center p-2 mb-4 rounded-xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-[0_0_20px_rgba(var(--primary),0.2)]">
-                        <Terminal className="h-8 w-8 animate-[pulse_4s_ease-in-out_infinite]" />
-                    </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/70">
-                        Crew Terminal
-                    </h1>
-                    <p className="text-lg text-muted-foreground mt-2 max-w-2xl font-light">
-                        Simulate and trigger hardware & flight data events natively to connected clients via Websockets.
-                    </p>
-                </div>
 
-                {/* Connected Clients & Actions Indicator */}
-                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4 sm:self-center relative group">
-                    <Button
-                        variant={showLogs ? "default" : "outline"}
-                        onClick={() => {
-                            if (!showLogs) fetchServerLogs();
-                            setShowLogs(!showLogs);
-                        }}
-                        className={`h-9 px-4 text-sm font-semibold rounded-xl border shadow-sm transition-all duration-300 ${showLogs ? 'bg-primary text-primary-foreground border-primary shadow-primary/25' : 'bg-background/80 backdrop-blur-xl border-border/50 hover:bg-primary/10 hover:text-primary hover:border-primary/40'}`}
-                    >
-                        <Terminal className="w-4 h-4 mr-2" />
-                        {showLogs ? "Close Logs" : "Server Logs"}
-                    </Button>
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
 
-                    <div className="relative group/badge">
-                        <div className={`absolute -inset-0.5 rounded-full blur opacity-40 group-hover/badge:opacity-60 transition ${clientsConnected > 0 ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                        <Badge variant="outline" className="relative px-4 py-2 flex items-center gap-2.5 text-sm bg-background/80 backdrop-blur-xl border-border/50 shadow-sm leading-none">
-                            <span className="relative flex h-3 w-3 items-center justify-center">
-                                {clientsConnected > 0 && (
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                )}
-                                <span className={`relative inline-flex rounded-full h-2 w-2 ${clientsConnected > 0 ? 'bg-emerald-500' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]'}`}></span>
-                            </span>
-                            <span className={`font-semibold tracking-wide uppercase text-xs ${clientsConnected > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
-                                {clientsConnected} Client{clientsConnected !== 1 ? 's' : ''} Connected
-                            </span>
-                        </Badge>
-                    </div>
-                </div>
-            </div>
-
-            {/* Status Alert Banner */}
-            {status.message && (
-                <div className={`p-4 rounded-lg flex items-center gap-3 border transition-all duration-300 animate-in fade-in slide-in-from-top-4 ${status.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 border-red-500/50 text-red-600 dark:text-red-400'}`}>
-                    {status.type === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
-                    <span className="font-medium">{status.message}</span>
-                </div>
-            )}
-
-            {/* Prominent Quick Controls */}
-            <Card className="border-primary/20 shadow-xl bg-gradient-to-r from-primary/5 via-background to-background mb-8 overflow-hidden relative group">
-                {/* Animated shimmer line */}
-                <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-primary/40 via-primary to-primary/40"></div>
-
-                <CardContent className="p-6 md:p-8">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                        <div className="space-y-1.5">
-                            <h3 className="text-xl font-bold text-foreground flex items-center gap-2.5 tracking-tight">
-                                Flight Operations
-                                <Badge variant="secondary" className="bg-primary/20 text-primary hover:bg-primary/30 border-none px-2 text-[10px]">QUICK CONTROL</Badge>
-                                <Badge variant="outline" className={`ml-2 px-2.5 py-0.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider ${isFlightOpen ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
-                                    <span className="relative flex h-2 w-2 items-center justify-center">
-                                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isFlightOpen ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-                                        <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isFlightOpen ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                                    </span>
-                                    {isFlightOpen ? 'Flight Open' : 'Flight Closed'}
-                                </Badge>
-                            </h3>
-                            <p className="text-base text-muted-foreground font-medium">
-                                Instantly open or close the active flight session globally on the PAC Server.
-                            </p>
+                {/* Header */}
+                <div className="h-[72px] bg-white dark:bg-slate-900 border-b border-[#e2e8f0] dark:border-slate-700/60 flex items-center justify-between px-8 shrink-0">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-slate-900 dark:bg-slate-700">
+                                <Terminal className="w-4 h-4 text-white" />
+                            </div>
+                            <h1 className="text-[20px] font-bold text-[#1e293b] dark:text-white tracking-tight">Crew Terminal</h1>
                         </div>
-                        <div className="flex items-center gap-3 w-full md:w-auto">
-                            <Button
-                                variant="outline"
-                                className="flex-1 md:flex-none border-emerald-500/40 bg-emerald-500/5 text-emerald-600 hover:bg-emerald-500/15 hover:text-emerald-700 hover:border-emerald-500/60 dark:text-emerald-400 dark:hover:text-emerald-300 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 shadow-sm transition-all h-12 px-6 text-sm font-semibold rounded-xl"
-                                onClick={() => handleFireEvent("OPEN_FLIGHT", false, "[1]")}
-                                disabled={loading}
-                            >
-                                <CheckCircle2 className="mr-2 h-5 w-5" />
-                                Open Flight
-                            </Button>
-                            <Button
-                                variant="outline"
-                                className="flex-1 md:flex-none border-red-500/40 bg-red-500/5 text-red-600 hover:bg-red-500/15 hover:text-red-700 hover:border-red-500/60 dark:text-red-400 dark:hover:text-red-300 dark:bg-red-950/30 dark:hover:bg-red-900/40 shadow-sm transition-all h-12 px-6 text-sm font-semibold rounded-xl"
-                                onClick={() => handleFireEvent("OPEN_FLIGHT", false, "[0]")}
-                                disabled={loading}
-                            >
-                                <AlertCircle className="mr-2 h-5 w-5" />
-                                Close Flight
-                            </Button>
-                        </div>
+                        {/* Status toast — right of title */}
+                        {status.message && (
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold border ${status.type === 'success'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300'
+                                : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
+                                }`}>
+                                {status.type === 'success'
+                                    ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                    : <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                }
+                                <span>{status.message}</span>
+                            </div>
+                        )}
                     </div>
-                </CardContent>
-            </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Unified status card */}
+                    <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
 
-                <div className="col-span-1 lg:col-span-2">
-                    {/* Search Bar */}
-                    <div className="mb-6 relative group">
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-blue-500/30 rounded-xl blur opacity-0 group-focus-within:opacity-100 transition duration-500"></div>
-                        <div className="relative flex items-center bg-background/90 backdrop-blur-md border border-border/60 hover:border-primary/50 transition-colors rounded-xl shadow-sm px-4 h-12">
-                            <Search className="h-5 w-5 text-muted-foreground mr-3" />
-                            <Input
-                                placeholder="Search all payload modules..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 text-sm font-medium"
-                            />
-                            {searchQuery && (
-                                <Badge variant="secondary" className="ml-2 font-mono text-[10px] bg-primary/10 text-primary border-transparent">
-                                    {filteredEvents.length} RESULTS
-                                </Badge>
+                        {/* Flight Status */}
+                        <div className={`flex items-center gap-2 px-4 py-2.5 border-r border-slate-200 dark:border-slate-700 ${isFlightOpen ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-red-50 dark:bg-red-950/40'}`}>
+                            <span className="relative flex h-2 w-2">
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${isFlightOpen ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${isFlightOpen ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                            </span>
+                            <div className="flex flex-col leading-none">
+                                <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Flight</span>
+                                <span className={`text-[13px] font-extrabold ${isFlightOpen ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
+                                    {isFlightOpen ? 'OPEN' : 'CLOSED'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Connected clients */}
+                        <div className="flex items-center gap-2 px-4 py-2.5 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                            <span className="relative flex h-2 w-2">
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${clientsConnected > 0 ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${clientsConnected > 0 ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                            </span>
+                            <div className="flex flex-col leading-none">
+                                <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Clients</span>
+                                <span className={`text-[13px] font-extrabold ${clientsConnected > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
+                                    {clientsConnected} Connected
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Server Logs button */}
+                        <Dialog open={showLogs} onOpenChange={(open) => {
+                            if (open) fetchServerLogs();
+                            setShowLogs(open);
+                        }}>
+                            <DialogTrigger asChild>
+                                <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer">
+                                    <Activity className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                                    <div className="flex flex-col leading-none text-left">
+                                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">View</span>
+                                        <span className="text-[13px] font-extrabold text-slate-700 dark:text-slate-200">Server Logs</span>
+                                    </div>
+                                </button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-3xl h-[600px] flex flex-col p-0 gap-0 overflow-hidden">
+                                <DialogHeader className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 p-5 px-6 shrink-0">
+                                    <DialogTitle className="text-lg flex items-center justify-between w-full pr-8">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                                <Terminal className="h-4 w-4" />
+                                            </div>
+                                            <span className="font-bold tracking-tight text-slate-800 dark:text-white">Pacio Server Logs</span>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={fetchServerLogs} disabled={fetchingLogs} className="text-[13px] rounded-lg px-4">
+                                            {fetchingLogs ? 'Refreshing...' : 'Refresh Logs'}
+                                        </Button>
+                                    </DialogTitle>
+                                </DialogHeader>
+                                <div className="flex-1 overflow-hidden bg-[#0f172a]">
+                                    <ScrollArea className="h-full w-full">
+                                        <pre className="font-mono text-xs p-6 text-slate-300 break-words whitespace-pre-wrap leading-relaxed">
+                                            {serverLogs || (fetchingLogs ? 'Fetching logs...' : 'No logs loaded. Click Refresh.')}
+                                        </pre>
+                                    </ScrollArea>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+                </div>
+
+
+                {/* Quick Controls — always visible, directly below header */}
+                <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-[#e2e8f0] dark:border-slate-700/60 px-6 py-3 flex gap-4">
+                    {/* Flight Operations */}
+                    <div className="flex-1 flex items-center justify-between gap-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+                        <div className="flex items-center gap-3">
+                            <Plane className={`w-4 h-4 ${isFlightOpen ? 'text-emerald-500' : 'text-red-400'}`} />
+                            <div>
+                                <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100">Flight Status</p>
+                                <p className="text-[11px] text-slate-400 font-medium">Open or close the active flight</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {isFlightOpen ? (
+                                <button onClick={() => handleFireEvent("OPEN_FLIGHT", false, "[0]")} disabled={loading} className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-300 text-[12px] font-bold hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer">
+                                    <AlertCircle className="w-3 h-3" /> Close Flight
+                                </button>
+                            ) : (
+                                <p className="text-[11px] text-slate-400 font-medium">Please <b className="text-emerald-500 font-bold">Open Flight</b> to view and trigger events.</p>
                             )}
                         </div>
                     </div>
 
-                    {showLogs ? (
-                        <Card className="border-border/40 shadow-2xl backdrop-blur-2xl bg-background/90 h-[480px] flex flex-col rounded-2xl overflow-hidden ring-1 ring-primary/20 dark:ring-primary/20 animate-in fade-in zoom-in-95 duration-300">
-                            <CardHeader className="bg-gradient-to-b from-primary/10 to-transparent border-b border-border/40 pb-5 shrink-0 px-6 pt-6 relative">
-                                <div className="absolute inset-0 bg-primary/5 pattern-dots pattern-primary/20 scale-150 pattern-size-4 pointer-events-none opacity-50" />
-                                <CardTitle className="text-xl flex items-center justify-between relative z-10">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 rounded-lg bg-primary/20 text-primary">
-                                            <Terminal className="h-5 w-5" />
-                                        </div>
-                                        <span className="font-semibold tracking-tight">Pacio Server Logs</span>
+                    {/* Entertainment System */}
+                    {isFlightOpen ? (<div className="flex-1 flex items-center justify-between gap-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+                        <div className="flex items-center gap-3">
+                            <Headphones className={`w-4 h-4 ${isIFEOn ? 'text-emerald-500' : 'text-red-400'}`} />
+                            <div>
+                                <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100">Entertainment</p>
+                                <p className="text-[11px] text-slate-400 font-medium">Turn Entertainment on or off</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {isIFEOn ? (
+                                <button
+                                    onClick={() => { handleFireEvent("ENTERTAINMENT_ON", false, "[0]"); setIsIFEOn(false); }}
+                                    disabled={loading}
+                                    className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-300 text-[12px] font-bold hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+                                >
+                                    <AlertCircle className="w-3 h-3" /> Turn OFF
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => { handleFireEvent("ENTERTAINMENT_ON", false, "[1]"); setIsIFEOn(true); }}
+                                    disabled={loading}
+                                    className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-[12px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+                                >
+                                    <CheckCircle2 className="w-3 h-3" /> Turn ON
+                                </button>
+                            )}
+                        </div>
+                    </div>) : (
+                        <div className="flex items-center gap-3">
+                            <Headphones className="w-4 h-4 text-blue-500" />
+                            <div>
+                                <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100">Entertainment System</p>
+                                <p className="text-[11px] text-slate-400 font-medium">Please <b className="text-emerald-500 font-bold">Open Flight</b> for Entertainment System </p>
+                            </div>
+                        </div>
+                    )}
+                    {/* Passenger Announcement
+                    {isFlightOpen ? (<div className="flex-1 flex items-center justify-between gap-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-3 ">
+                        <div className="flex items-center gap-3">
+                            <Users className={`w-4 h-4 ${isPAOn ? 'text-emerald-500' : 'text-red-400'}`}  />
+                            <div>
+                                <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100">Passenger Announcement</p>
+                                <p className="text-[11px] text-slate-400 font-medium">Broadcast announcements to seat</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {isPAOn ? (
+                                <button
+                                    onClick={() => { handleFireEvent("X2_PA_STATE", false, "[0]"); setIsPAOn(false); }}
+                                    disabled={loading}
+                                    className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-300 text-[12px] font-bold hover:bg-red-100 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+                                >
+                                    <AlertCircle className="w-3 h-3" /> Turn OFF
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => { handleFireEvent("X2_PA_STATE", false, "[1]"); setIsPAOn(true); }}
+                                    disabled={loading}
+                                    className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-[12px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+                                >
+                                    <CheckCircle2 className="w-3 h-3" /> Turn ON
+                                </button>
+                            )}
+                        </div>
+                    </div>) : (
+                        <div className="flex items-center gap-3">
+                            <Users className="w-4 h-4 text-blue-500" />
+                            <div>
+                                <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100">Passenger Announcement</p>
+                                <p className="text-[11px] text-slate-400 font-medium">Please <b className="text-emerald-500 font-bold">Open Flight</b> for Passenger Announcement </p>
+                            </div>
+                        </div>
+                    )} */}
+
+
+                </div>
+
+                {/* Category Nav + Search — single combined strip */}
+                {isFlightOpen ?
+                    (
+                        <>
+                            <div className="bg-white dark:bg-slate-900 border-b border-[#e2e8f0] dark:border-slate-700/60 shrink-0 flex items-center h-[52px] px-4 gap-3">
+
+                                {/* Scrollable tabs — doesn't stretch full width */}
+                                <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar min-w-0 flex-shrink">
+                                    {SIDEBAR_CATEGORIES.map(category => {
+                                        const groupEvents = EVENT_GROUPS[category.group] || [];
+                                        const isActive = selectedCategory !== null
+                                            ? selectedCategory === category.name
+                                            : groupEvents.includes(selectedEvent);
+                                        return (
+                                            <button
+                                                key={category.name}
+                                                onClick={() => {
+                                                    setSelectedCategory(category.name);
+                                                    const el = document.getElementById(`group-${category.group}`);
+                                                    if (el && gridScrollRef.current) {
+                                                        const containerTop = gridScrollRef.current.getBoundingClientRect().top;
+                                                        const elTop = el.getBoundingClientRect().top;
+                                                        gridScrollRef.current.scrollTop += (elTop - containerTop) - 16;
+                                                    }
+                                                }}
+                                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[13px] font-semibold whitespace-nowrap transition-all shrink-0 cursor-pointer ${isActive
+                                                    ? 'bg-blue-600 text-white shadow-sm'
+                                                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100'
+                                                    }`}
+                                            >
+                                                <category.icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                                                {category.name}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {/* Search — pinned right, fixed width */}
+                                <div className="ml-auto shrink-0 flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-400 focus-within:border-blue-400 rounded-lg px-3 h-8 transition-all w-52 gap-2">
+                                    <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                    <Input
+                                        placeholder="Search events..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 text-[12.5px] font-medium placeholder:text-slate-400 h-full w-full"
+                                    />
+                                    {searchQuery && (
+                                        <Badge variant="secondary" className="font-mono text-[10px] bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 border-transparent shrink-0">
+                                            {filteredEvents.length}
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+
+
+                            {/* 3-col body */}
+                            <div className="flex-1 overflow-hidden flex min-h-0">
+
+                                {/* Center: Event Grid */}
+                                <div ref={gridScrollRef} className="flex-1 overflow-y-auto p-6 min-w-0 bg-[#f8fafc] dark:bg-slate-950">
+
+                                    {/* Event Grid */}
+                                    <div className="space-y-8 pb-6">
+                                        {searchQuery ? (
+                                            <div>
+                                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Search Results</p>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                                                    {filteredEvents.map((evt) => {
+                                                        const meta = EVENT_METADATA[evt] || { title: evt.replace("FLTDATA_", ""), subtitle: "System trigger", Icon: Activity };
+                                                        return (
+                                                            <EventCard
+                                                                key={evt}
+                                                                evt={evt}
+                                                                meta={meta}
+                                                                isSelected={selectedEvent === evt}
+                                                                onClick={() => {
+                                                                    setSelectedEvent(evt);
+                                                                    setSelectedCategory(null);
+                                                                    setCustomParams(defaultParamsMapping[evt] ? JSON.stringify(defaultParamsMapping[evt]) : '');
+                                                                }}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            Object.entries(EVENT_GROUPS).map(([category, events], idx) => {
+                                                const colors = CATEGORY_COLORS[category] || { bg: 'bg-slate-50', border: 'border-slate-200', icon: 'text-slate-500', badge: 'bg-slate-100 text-slate-600', header: 'bg-slate-600' };
+                                                const catMeta = SIDEBAR_CATEGORIES.find(c => c.group === category);
+                                                const CatIcon = catMeta?.icon || Activity;
+                                                const sectionBg = idx % 2 === 0 ? 'bg-white' : 'bg-[#f8fafc]';
+                                                return (
+                                                    <div key={category} id={`group-${category}`} className={`rounded-2xl border ${colors.border} dark:border-opacity-30 overflow-hidden`}>
+                                                        {/* Section header */}
+                                                        <div className={`flex items-center justify-between px-5 py-3 ${colors.bg} dark:bg-opacity-10 border-b ${colors.border} dark:border-opacity-20`}>
+                                                            <div className="flex items-center gap-2.5">
+                                                                <div className={`p-1.5 rounded-lg ${colors.header} bg-opacity-10`}>
+                                                                    <CatIcon className={`w-4 h-4 ${colors.icon}`} />
+                                                                </div>
+                                                                <span className={`text-[13px] font-extrabold uppercase tracking-widest ${colors.icon}`}>{category}</span>
+                                                            </div>
+                                                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${colors.badge}`}>{events.length} events</span>
+                                                        </div>
+                                                        {/* Cards grid */}
+                                                        <div className={`p-4 ${sectionBg === 'bg-white ' ? 'bg-white dark:bg-slate-900 ' : 'bg-[#f8fafc] dark:bg-slate-800/40 '}`}>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                                                                {events.map((evt) => {
+                                                                    const meta = EVENT_METADATA[evt] || { title: evt.replace('FLTDATA_', ''), subtitle: 'System trigger', Icon: Activity };
+                                                                    return (
+                                                                        <EventCard
+                                                                            key={evt}
+                                                                            evt={evt}
+                                                                            meta={meta}
+                                                                            isSelected={selectedEvent === evt}
+                                                                            onClick={() => {
+                                                                                setSelectedEvent(evt);
+                                                                                setSelectedCategory(null);
+                                                                                setCustomParams(defaultParamsMapping[evt] ? JSON.stringify(defaultParamsMapping[evt]) : '');
+                                                                            }}
+                                                                        />
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
                                     </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={fetchServerLogs}
-                                        disabled={fetchingLogs}
-                                        className="bg-primary/10 border-primary/30 text-primary hover:bg-primary/20 hover:text-primary transition-colors rounded-lg px-4"
-                                    >
-                                        {fetchingLogs ? 'Refreshing...' : 'Refresh Logs'}
-                                    </Button>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0 flex-1 overflow-hidden bg-black/5 dark:bg-black/40">
-                                <ScrollArea className="h-full w-full p-0">
-                                    <pre className="font-mono text-xs p-6 text-foreground/80 break-words whitespace-pre-wrap">
-                                        {serverLogs || (fetchingLogs ? 'Fetching logs...' : 'No logs loaded. Click Refresh.')}
-                                    </pre>
-                                </ScrollArea>
-                            </CardContent>
-                        </Card>
-                    ) : searchQuery ? (
-                        <Card className="border-border/40 shadow-xl backdrop-blur-2xl bg-background/80 h-[480px] flex flex-col rounded-2xl overflow-hidden ring-1 ring-white/10 dark:ring-white/5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <CardHeader className="bg-gradient-to-b from-primary/5 to-transparent border-b border-border/40 pb-5 shrink-0 px-6 pt-6">
-                                <CardTitle className="text-xl flex items-center justify-between">
-                                    <span className="font-semibold tracking-tight">Search Results</span>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0 flex-1 overflow-hidden">
-                                <ScrollArea className="h-full w-full p-6">
-                                    {filteredEvents.length > 0 ? (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 pb-6">
-                                            {filteredEvents.map((evt) => (
-                                                <Button
-                                                    key={evt}
-                                                    variant={"outline"}
-                                                    className={`justify-start font-mono text-[11.5px] h-auto min-h-[52px] py-3 px-4 break-all whitespace-normal text-left transition-all duration-300 ${selectedEvent === evt
-                                                        ? 'bg-primary border-primary text-primary-foreground shadow-[0_4px_15px_rgba(var(--primary),0.3)] scale-[1.03] z-10'
-                                                        : 'bg-background hover:-translate-y-0.5 hover:shadow-md hover:border-primary/40 text-foreground/80 hover:text-foreground'
-                                                        }`}
-                                                    onClick={() => {
-                                                        setSelectedEvent(evt);
-                                                        if (defaultParamsMapping[evt]) {
-                                                            setCustomParams(JSON.stringify(defaultParamsMapping[evt]));
+                                </div>
+
+                                {/* Right: Execution Panel */}
+                                <div className="w-[300px] xl:w-[340px] shrink-0 border-l border-[#e2e8f0] dark:border-slate-700/60 bg-[#f8fafc] dark:bg-slate-900 overflow-y-auto">
+                                    {selectedEvent ? (
+                                        <div className="flex flex-col">
+                                            <div className="px-6 pt-6 pb-4 border-b border-slate-100 shrink-0">
+                                                <div className="flex items-center gap-2 mb-1 bg-slate-200 dark:bg-slate-800/60 w-max px-2 py-1 rounded">
+                                                    <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                                                        <Send className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Event Execution</span>
+                                                </div>
+                                                <p className="text-[14px] font-bold text-slate-800 mt-2">
+                                                    {EVENT_METADATA[selectedEvent]?.title || selectedEvent}
+                                                </p>
+                                            </div>
+
+                                            <div className="p-5 space-y-5">
+                                                <div>
+                                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Payload</label>
+                                                    <Input
+                                                        placeholder='e.g., ["35000"] or [1]'
+                                                        value={customParamParams}
+                                                        onChange={(e) => setCustomParams(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') handleFireEvent(selectedEvent, customParamParams === '');
+                                                        }}
+                                                        className="rounded-xl border-slate-200 bg-slate-50 font-mono text-[13px] h-11 focus-visible:ring-1 focus-visible:ring-blue-400 focus-visible:bg-white transition-all placeholder:text-slate-400"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                                        <Info className="w-3 h-3" /> JSON Preview
+                                                    </label>
+                                                    {(() => {
+                                                        const isDefault = customParamParams === '';
+                                                        let isError = false;
+                                                        let errorMsg = '';
+                                                        let displayParamsStr = '[]';
+                                                        if (isDefault) {
+                                                            displayParamsStr = defaultParamsMapping[selectedEvent]
+                                                                ? JSON.stringify(defaultParamsMapping[selectedEvent])
+                                                                : '[]';
                                                         } else {
-                                                            setCustomParams('');
+                                                            try {
+                                                                const parsed = JSON.parse(customParamParams);
+                                                                if (Array.isArray(parsed)) {
+                                                                    displayParamsStr = JSON.stringify(parsed);
+                                                                } else {
+                                                                    isError = true;
+                                                                    errorMsg = 'Payload must be a JSON array, e.g. [1] or ["value"]';
+                                                                    displayParamsStr = customParamParams;
+                                                                }
+                                                            } catch {
+                                                                isError = true;
+                                                                errorMsg = 'Invalid JSON — check brackets, quotes, and commas';
+                                                                displayParamsStr = customParamParams;
+                                                            }
                                                         }
-                                                    }}
+                                                        return (
+                                                            <div className="space-y-2">
+                                                                <div className={`rounded-xl p-4 font-mono text-[12px] leading-relaxed overflow-hidden transition-all ${isError ? 'bg-[#1a0a0a] border border-red-900/50' : 'bg-[#0f172a] border border-slate-700/40'}`}>
+                                                                    <span className="text-slate-400">{'{'}</span><br />
+                                                                    <span className="text-slate-400 pl-4">"eventName":&nbsp;</span>
+                                                                    <span className="text-emerald-400 break-all">"{selectedEvent}"</span>
+                                                                    <span className="text-slate-400">,</span><br />
+                                                                    <span className="text-slate-400 pl-4">"params":&nbsp;</span>
+                                                                    {isError ? (
+                                                                        <span className="text-red-400/60 italic break-all">{displayParamsStr}</span>
+                                                                    ) : (
+                                                                        <span className={`font-bold break-all px-1 rounded ${isDefault ? 'text-blue-300' : 'text-yellow-300'}`}>
+                                                                            {displayParamsStr}
+                                                                        </span>
+                                                                    )}
+                                                                    <br />
+                                                                    <span className="text-slate-400">{'}'}</span>
+                                                                </div>
+                                                                {/* Friendly error badge */}
+                                                                {isError && (
+                                                                    <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+                                                                        <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+                                                                        <span className="text-[11px] font-semibold text-amber-700 leading-snug">{errorMsg}</span>
+                                                                    </div>
+                                                                )}
+                                                                {/* Live typing indicator */}
+                                                                {!isDefault && !isError && (
+                                                                    <div className="flex items-center gap-1.5 px-1">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                                                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Custom payload active</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+
+                                                {QUICK_ACTIONS[selectedEvent] && (
+                                                    <div>
+                                                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" /> Quick Actions
+                                                        </label>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {QUICK_ACTIONS[selectedEvent].map((action) => {
+                                                                const isActive = customParamParams === action.value;
+                                                                return (
+                                                                    <button
+                                                                        key={action.label}
+                                                                        onClick={() => setCustomParams(action.value)}
+                                                                        className={`h-9 px-4 rounded-full text-[13px] font-bold transition-all border ${isActive ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-slate-50'}`}
+                                                                    >
+                                                                        {action.label}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {/* Transmit button — sits naturally after content */}
+                                                <button
+                                                    onClick={() => handleFireEvent(selectedEvent, customParamParams === '')}
+                                                    disabled={loading}
+                                                    className="w-full mt-2 py-3.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[13px] tracking-widest uppercase transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
                                                 >
-                                                    <span className="truncate w-full block">{evt.replace("FLTDATA_", "")}</span>
-                                                </Button>
-                                            ))}
+                                                    <Send className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                                                    {loading ? 'Transmitting...' : 'Transmit Event'}
+                                                </button>
+                                            </div>
+
+
                                         </div>
                                     ) : (
-                                        <div className="flex flex-col items-center justify-center h-full py-12 text-center text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border/50">
-                                            <Search className="h-10 w-10 mb-3 opacity-20" />
-                                            <p className="text-sm font-medium">No Events found matching "{searchQuery}"</p>
-                                        </div>
-                                    )}
-                                </ScrollArea>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <Tabs defaultValue="Flight & Route" className="w-full">
-                            <TabsList className="flex w-full overflow-x-auto h-auto p-1.5 mb-6 bg-muted/50 rounded-2xl shadow-inner border border-border/40">
-                                {Object.keys(EVENT_GROUPS).map((groupName) => (
-                                    <TabsTrigger
-                                        key={groupName}
-                                        value={groupName}
-                                        className="px-4 py-2.5 text-sm font-medium rounded-xl flex-1 whitespace-nowrap transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-md border border-transparent data-[state=active]:border-border/50 cursor-pointer"
-                                    >
-                                        {groupName}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-
-                            {Object.entries(EVENT_GROUPS).map(([category, events]) => (
-                                <TabsContent key={category} value={category} className="mt-0 outline-none focus-visible:ring-0">
-                                    <Card className="border-border/40 shadow-xl backdrop-blur-2xl bg-background/80 h-[456px] flex flex-col rounded-2xl overflow-hidden ring-1 ring-white/10 dark:ring-white/5">
-                                        <CardHeader className="bg-gradient-to-b from-muted/40 to-transparent border-b border-border/40 pb-5 shrink-0 px-6 pt-6">
-                                            <CardTitle className="text-xl flex items-center justify-between">
-                                                <span className="font-semibold tracking-tight">{category}</span>
-                                                <Badge variant="secondary" className="font-mono bg-primary/15 text-primary border-primary/20 shadow-sm px-2.5 py-0.5 rounded-full">{events.length} Events</Badge>
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-0 flex-1 overflow-hidden">
-                                            <ScrollArea className="h-full w-full p-6">
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 pb-6">
-                                                    {events.map((evt) => (
-                                                        <Button
-                                                            key={evt}
-                                                            variant={"outline"}
-                                                            className={`justify-start font-mono text-[11.5px] h-auto min-h-[52px] py-3 px-4 break-all whitespace-normal text-left transition-all duration-300 ${selectedEvent === evt
-                                                                ? 'bg-primary border-primary text-primary-foreground shadow-[0_4px_15px_rgba(var(--primary),0.3)] scale-[1.03] z-10'
-                                                                : 'bg-background hover:-translate-y-0.5 hover:shadow-md hover:border-primary/40 text-foreground/80 hover:text-foreground'
-                                                                }`}
-                                                            onClick={() => {
-                                                                setSelectedEvent(evt);
-                                                                if (defaultParamsMapping[evt]) {
-                                                                    setCustomParams(JSON.stringify(defaultParamsMapping[evt]));
-                                                                } else {
-                                                                    setCustomParams('');
-                                                                }
-                                                            }}
-                                                        >
-                                                            <span className="truncate w-full block">{evt.replace("FLTDATA_", "")}</span>
-                                                        </Button>
-                                                    ))}
-                                                </div>
-                                            </ScrollArea>
-                                        </CardContent>
-                                    </Card>
-                                </TabsContent>
-                            ))}
-                        </Tabs>
-                    )}
-                </div>
-
-                {/* Control Panel Sidebar */}
-                <div className="col-span-1">
-                    <div className="sticky top-6">
-                        <Card className="border-border/40 shadow-xl backdrop-blur-3xl bg-background/60 h-[520px] flex flex-col rounded-2xl overflow-hidden ring-1 ring-white/10 dark:ring-white/5 relative group">
-                            {/* Decorative dynamic glows */}
-                            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-primary/20 rounded-full blur-[80px] pointer-events-none transition-all duration-700 group-hover:bg-primary/30" />
-                            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
-
-                            <CardHeader className="bg-gradient-to-b from-muted/30 to-transparent border-b border-border/40 pb-5 shrink-0 px-6 pt-6 relative z-10">
-                                <CardTitle className="text-xl flex items-center gap-2.5 font-semibold tracking-tight">
-                                    <div className="p-1.5 rounded-md bg-primary/10 text-primary">
-                                        <Terminal className="h-4 w-4" />
-                                    </div>
-                                    Execution Deck
-                                </CardTitle>
-                                <CardDescription className="text-sm mt-1.5">
-                                    {selectedEvent ? <span className="text-primary font-medium tracking-wide">{selectedEvent}</span> : 'Select an event from the library.'}
-                                </CardDescription>
-                            </CardHeader>
-
-                            <CardContent className="p-6 flex-1 flex flex-col overflow-y-auto overflow-x-hidden relative z-10 space-y-6">
-                                {selectedEvent ? (
-                                    <>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs font-bold text-foreground/80 uppercase tracking-widest">
-                                                    Custom Array Payload
-                                                </label>
+                                        <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                                            <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-100 mb-5">
+                                                <Send className="w-9 h-9 text-slate-300" />
                                             </div>
-                                            <div className="relative group/input">
-                                                <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-blue-500/30 rounded-lg blur opacity-0 group-focus-within/input:opacity-100 transition duration-500"></div>
-                                                <Input
-                                                    placeholder='e.g., ["35000"] or [0, 40, 100]'
-                                                    value={customParamParams}
-                                                    onChange={(e) => setCustomParams(e.target.value)}
-                                                    className="relative font-mono text-sm bg-background/90 border-border/50 shadow-inner focus-visible:ring-0 focus-visible:border-transparent rounded-lg h-11"
-                                                />
-                                            </div>
-
-                                            <p className="text-[11px] leading-relaxed text-muted-foreground flex items-start gap-2 mt-2 bg-muted/40 p-3 rounded-lg border border-border/30">
-                                                <Info className="min-w-3.5 h-3.5 mt-0.5 text-primary" />
-                                                <span>Edit the array above to broadcast a custom payload. Clear the input entirely to fire the pre-seeded backend defaults.</span>
+                                            <h4 className="text-[15px] font-bold text-slate-700 mb-2">Select an Event</h4>
+                                            <p className="text-[12px] text-slate-400 leading-relaxed font-medium">
+                                                Choose any event from the library to configure its payload and transmit.
                                             </p>
                                         </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>) :
+                    (<div className="flex-1 overflow-hidden flex min-h-0">
 
-                                        {QUICK_ACTIONS[selectedEvent] && (
-                                            <div className="space-y-3 pt-2">
-                                                <label className="text-xs font-bold text-foreground/80 uppercase tracking-widest flex items-center gap-2">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                    Action Presets
-                                                </label>
-                                                <div className="grid grid-cols-2 gap-2.5">
-                                                    {QUICK_ACTIONS[selectedEvent].map((action) => (
-                                                        <Button
-                                                            key={action.label}
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className={`text-xs h-9 rounded-lg transition-all ${customParamParams === action.value
-                                                                ? 'bg-primary/10 border-primary/50 text-primary shadow-[0_0_15px_rgba(var(--primary),0.15)] ring-1 ring-primary/30'
-                                                                : 'hover:border-primary/40 hover:bg-background'}`}
-                                                            onClick={() => setCustomParams(action.value)}
-                                                        >
-                                                            {action.label}
-                                                        </Button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                        {/* Center: Event Grid */}
+                        <div ref={gridScrollRef} className="flex-1 overflow-y-auto p-6 min-w-0 bg-[#f8fafc] dark:bg-slate-950">
 
-                                        <div className="mt-auto pt-6 border-t border-border/30">
-                                            <Button
-                                                className="w-full relative overflow-hidden group shadow-[0_0_20px_rgba(var(--primary),0.2)] hover:shadow-[0_0_30px_rgba(var(--primary),0.4)] transition-all duration-300 h-12 rounded-xl border border-primary/20"
-                                                size="lg"
-                                                onClick={() => handleFireEvent(selectedEvent, customParamParams === '')}
-                                                disabled={loading}
-                                            >
-                                                <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/80 to-blue-600 opacity-90" />
-                                                <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                            {/* Event Grid */}
 
-                                                <span className="relative z-10 font-bold tracking-wide flex items-center text-white">
-                                                    <Send className="mr-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                                                    {loading ? 'TRANSMITTING...' : 'TRANSMIT PAYLOAD'}
-                                                </span>
-                                            </Button>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-center px-4 animate-in fade-in duration-700">
-                                        <div className="relative mb-6 group-hover:scale-110 transition-transform duration-500">
-                                            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl scale-150 animate-pulse" />
-                                            <div className="relative bg-background/80 p-5 rounded-2xl border border-border/50 shadow-xl backdrop-blur-sm">
-                                                <Terminal className="h-10 w-10 text-primary/60" />
-                                            </div>
-                                        </div>
-                                        <h4 className="text-lg font-bold text-foreground mb-2">Awaiting Instructions</h4>
-                                        <p className="text-sm text-muted-foreground/80 max-w-[200px] leading-relaxed">
-                                            Select any Event from the left Panel to configure and trigger the payload.
-                                        </p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
+                            <div className="space-y-8 pb-6 flex items-center justify-center h-full">
+                                <div className="p-5 bg-slate-200 rounded-[24px] border border-slate-100 mb-5 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-900 dark:text-blue-300 text-[12px] font-bold  flex flex-col items-center gap-3">
+                                    <Plane className="w-9 h-9 text-red-400" />
+                                    <p className=''>Please <b className='font-bold text-emerald-500'>Open the Flight</b> to view and trigger events.</p>
+                                    <button onClick={() => handleFireEvent("OPEN_FLIGHT", false, "[1]")} disabled={loading} className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-bold rounded-full transition-colors cursor-pointer">
+                                        Open Flight
+                                    </button>
 
+                                </div>
+
+                            </div>
+                        </div>
+
+                        {/* Right: Execution Panel */}
+                        <div className="w-[300px] xl:w-[340px] shrink-0 border-l border-[#e2e8f0] dark:border-slate-700/60 bg-[#f8fafc] dark:bg-slate-900 overflow-y-auto">
+                            <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                                <div className="p-5 bg-slate-50 rounded-[24px] border border-slate-100 mb-5">
+                                    <Send className="w-9 h-9 text-slate-300" />
+                                </div>
+                                <h4 className="text-[15px] font-bold text-slate-700 mb-2">Select an Event</h4>
+                                <p className="text-[12px] text-slate-400 leading-relaxed font-medium">
+                                    Please <b className='font-bold text-emerald-500'>Open the Flight</b> for viewing the events
+                                </p>
+                            </div>
+                        </div>
+                    </div>)
+
+                }
             </div>
-        </div >
+        </div>
     );
 };
+
+const EventCard = ({ evt, meta, isSelected, onClick }) => (
+    <button
+        onClick={onClick}
+        className={`group text-left w-full rounded-2xl border p-4 transition-all duration-200 flex flex-row gap-3 cursor-pointer ${isSelected
+            ? 'bg-white border-blue-500 ring-2 ring-blue-500/20 shadow-md'
+            : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-sm'
+            }`}
+    >
+        <div className="flex items-start justify-between">
+            <div className={`p-2.5 rounded-xl transition-colors ${isSelected ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-500 group-hover:bg-blue-50/60 group-hover:text-blue-500'}`}>
+                <meta.Icon className="w-5 h-5" />
+            </div>
+            
+        </div>
+        <div>
+            <p className="text-[13px] font-extrabold tracking-tight text-slate-800 leading-tight">{meta.title}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5 font-medium">{meta.subtitle}</p>
+        </div>
+    </button>
+);
 
 export default CrewTerminalPage;

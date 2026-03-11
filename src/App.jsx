@@ -9,10 +9,12 @@ import LtnDataPage from './features/ltn/LtnDataPage';
 import AnsDataPage from './features/ans/AnsDataPage';
 import SurveysDataPage from './features/surveys/SurveysDataPage';
 import CrewTerminalPage from './features/crew-terminal/CrewTerminalPage';
+import CrewTerminalMessaging from './features/crew-terminal/CrewTerminalMessaging';
 
 import { SocketProvider } from './contexts/SocketContext';
 import { ApiProvider } from './contexts/ApiContext';
 import { TourProvider } from './contexts/TourContext';
+
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,7 @@ function App() {
                   <Route path="crew-terminal" element={<CrewTerminalPage />} />
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
+                  <Route path="/crew-terminal/messaging" element={<CrewTerminalMessaging />} />
                 </Route>
               </Routes>
             </Router>
