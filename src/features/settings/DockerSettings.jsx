@@ -179,8 +179,8 @@ const CollapsibleServiceRow = ({ service, logs, setLogs, onAction, disabled }) =
                         </Button>
                     </div>
                 </div>
-                <div className="mt-5 bg-black rounded-lg h-[250px] overflow-hidden text-xs font-mono p-3 border border-border/50 shadow-inner">
-                    <ScrollArea className="h-full w-full">
+                <div className="mt-5 bg-black rounded-lg overflow-hidden text-xs font-mono p-3 border border-border/50 shadow-inner">
+                    <ScrollArea className="h-[250px] w-full">
                         {logs[service.name]?.flatMap((logPayload, i) => {
                             if (typeof logPayload !== 'string') return [];
                             return logPayload.split(/\r?\n/).filter(l => l.length > 0).map((line, j) => {
@@ -514,7 +514,7 @@ export default function DockerSettings() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-12">
             <Joyride
                 steps={tourSteps}
                 run={runTour}
@@ -679,7 +679,7 @@ export default function DockerSettings() {
                     </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-1">
                     {isLoading && services.length === 0 ? (
                         Array.from({ length: 3 }).map((_, i) => (
                             <div key={i} className="flex items-center justify-between p-4 border rounded-md">

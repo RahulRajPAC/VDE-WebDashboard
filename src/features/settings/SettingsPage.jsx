@@ -4,7 +4,7 @@ import { Separator } from '@/components/ui/separator';
 
 export default function SettingsPage() {
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 min-h-full">
             <div>
                 <h3 className="text-lg font-medium">Docker Services</h3>
                 <p className="text-sm text-muted-foreground">
