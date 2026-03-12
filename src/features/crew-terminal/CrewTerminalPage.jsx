@@ -6,10 +6,12 @@ import {
     ActivitySquare, MonitorPlay, Thermometer, Calendar, Compass, AlignLeft,
     PlayCircle
 } from 'lucide-react';
+import CrewHeader from './components/CrewHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
+import useCrewTerminalStatus from './hooks/useCrewTerminalStatus';
 
 import { toast } from 'sonner';
 
@@ -140,7 +142,6 @@ const QUICK_ACTIONS = {
     ],
     "X2_PA_STATE": [
         { label: "PA ON", value: "[1]" },
-        { label: "PA OFF", value: "[0]" }
     ]
 };
 
@@ -148,16 +149,21 @@ const CrewTerminalPage = () => {
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [customParamParams, setCustomParams] = useState('');
-    const [status, setStatus] = useState({ type: '', message: '' });
     const [loading, setLoading] = useState(false);
-    const [clientsConnected, setClientsConnected] = useState(0);
-    const [isFlightOpen, setIsFlightOpen] = useState(false);
     const [isIFEOn, setIsIFEOn] = useState(false);
-    const [isPAOn, setIsPAOn] = useState(false);
+
+    const {
+        clientsConnected,
+        isFlightOpen,
+        setIsFlightOpen,
+        serverLogs,
+        fetchingLogs,
+        showLogs,
+        setShowLogs,
+        fetchServerLogs
+    } = useCrewTerminalStatus();
+
     const [defaultParamsMapping, setDefaultParamsMapping] = useState({});
-    const [serverLogs, setServerLogs] = useState('');
-    const [fetchingLogs, setFetchingLogs] = useState(false);
-    const [showLogs, setShowLogs] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [searchFocused, setSearchFocused] = useState(false);
     const gridScrollRef = useRef(null);
@@ -196,24 +202,6 @@ const CrewTerminalPage = () => {
     useEffect(() => {
         let isMounted = true;
 
-        const fetchStatus = async () => {
-            try {
-                const baseUrl = `http://${window.location.hostname}:50603`;
-                const response = await fetch(`${baseUrl}/api/status`);
-                const data = await response.json();
-                if (isMounted) {
-                    if (data.clientsConnected !== undefined) {
-                        setClientsConnected(data.clientsConnected);
-                    }
-                    if (data.isFlightOpen !== undefined) {
-                        setIsFlightOpen(data.isFlightOpen);
-                    }
-                }
-            } catch (error) {
-                // Silently ignore polling errors
-            }
-        };
-
         const fetchDefaults = async () => {
             try {
                 const baseUrl = `http://${window.location.hostname}:50603`;
@@ -222,38 +210,20 @@ const CrewTerminalPage = () => {
                 if (isMounted && data) {
                     setDefaultParamsMapping(data);
                 }
-            } catch (error) {
-                console.error("Could not fetch defaults:", error);
+            } catch (ignored) {
+                console.error("Could not fetch defaults:", ignored);
             }
         };
 
         fetchDefaults();
-        fetchStatus();
-        const interval = setInterval(fetchStatus, 3000);
 
         return () => {
             isMounted = false;
-            clearInterval(interval);
         };
     }, []);
 
-    const fetchServerLogs = async () => {
-        setFetchingLogs(true);
-        try {
-            const baseUrl = `http://${window.location.hostname}:50603`;
-            const response = await fetch(`${baseUrl}/api/logs`);
-            const data = await response.json();
-            setServerLogs(data.logs || 'No logs available');
-        } catch (err) {
-            setServerLogs('Error fetching logs: ' + err.message);
-        } finally {
-            setFetchingLogs(false);
-        }
-    };
-
     const handleFireEvent = async (eventName, useDefault = true, overridePayload = null, silent = false) => {
         setLoading(true);
-        if (!silent) setStatus({ type: '', message: '' });
 
         try {
             const body = { eventName };
@@ -268,8 +238,8 @@ const CrewTerminalPage = () => {
                         throw new Error("Parameters must be a valid JSON array.");
                     }
                     body.params = parsedArray;
-                } catch (e) {
-                    setStatus({ type: 'error', message: 'Invalid JSON Array format. Example: ["35000"] or [100, 200]' });
+                } catch {
+                    if (!silent) toast.error('Invalid JSON Array format. Example: ["35000"] or [100, 200]');
                     setLoading(false);
                     return;
                 }
@@ -297,7 +267,7 @@ const CrewTerminalPage = () => {
                 if (!silent) toast.error(resultMessage);
                 return { ok: false, message: resultMessage };
             }
-        } catch (error) {
+        } catch {
             const errMsg = 'Could not connect to PAC Server.';
             if (!silent) toast.error(errMsg);
             return { ok: false, message: errMsg };
@@ -307,94 +277,23 @@ const CrewTerminalPage = () => {
     };
 
     return (
-        <div className="flex h-screen w-full bg-[#f8fafc] dark:bg-slate-950 overflow-hidden font-sans text-slate-800 dark:text-slate-100">
+        <div className="flex h-full w-full bg-[#f8fafc] dark:bg-slate-950 overflow-hidden font-sans text-slate-800 dark:text-slate-100">
 
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
 
-                {/* Header */}
-                <div className="h-[100px] bg-blue-500 rounded-lg mb-6 dark:bg-blue-500  border-b border-[#e2e8f0] dark:border-slate-700/60 flex items-center justify-between px-8 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <div className="flex flex-col justify">
-                            <h1 className="text-2xl font-extrabold tracking-tight text-white m-0 leading-tight">PACIO Events</h1>
-                            <p className="text-[13px] text-blue-50 mt-1 m-0">Compose and broadcast <span className="font-mono text-white opacity-90 px-1 py-0.5 bg-white/20 rounded">Events</span>to seat displays.</p>
-                        </div>
-                    </div>
-
-
-                    {/* Unified status card */}
-                    <div className="flex items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm shrink-0 min-h-[72px]">
-
-                        {/* Flight Status */}
-                        <div className={`flex items-center gap-3 px-5 py-2.5 h-full border-r border-slate-200 dark:border-slate-700 ${isFlightOpen ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'bg-red-50 dark:bg-red-950/40'}`}>
-                            <span className="relative flex h-2 w-2 shadow-[0_0_8px_rgba(0,0,0,0.1)] rounded-full">
-                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${isFlightOpen ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-                                <span className={`relative inline-flex rounded-full h-2 w-2 ${isFlightOpen ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                            </span>
-                            <div className="flex flex-col leading-none">
-                                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Flight</span>
-                                <span className={`text-[13px] font-extrabold mt-0.5 ${isFlightOpen ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
-                                    {isFlightOpen ? 'OPEN' : 'CLOSED'}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Connected clients */}
-                        <div className="flex items-center gap-3 px-5 py-2.5 h-full border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                            <span className="relative flex h-2 w-2 shadow-[0_0_8px_rgba(0,0,0,0.1)] rounded-full">
-                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${clientsConnected > 0 ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-                                <span className={`relative inline-flex rounded-full h-2 w-2 ${clientsConnected > 0 ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                            </span>
-                            <div className="flex flex-col leading-none">
-                                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">Clients</span>
-                                <span className={`text-[13px] font-extrabold mt-0.5 ${clientsConnected > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-300'}`}>
-                                    {clientsConnected} Connected
-                                </span>
-                            </div>
-                        </div>
-
-
-                        {/* Server Logs button */}
-                        <Dialog open={showLogs} onOpenChange={(open) => {
-                            if (open) fetchServerLogs();
-                            setShowLogs(open);
-                        }}>
-                            <DialogTrigger asChild>
-                                <button className="flex items-center gap-3 px-5 py-2.5 h-full bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer border-0 outline-none">
-                                    <Activity className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                                    <div className="flex flex-col leading-none text-left">
-                                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-500">View</span>
-                                        <span className="text-[13px] font-extrabold text-slate-700 dark:text-slate-200 mt-0.5">Server Logs</span>
-                                    </div>
-                                </button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-3xl h-[600px] flex flex-col p-0 gap-0 overflow-hidden">
-                                <DialogHeader className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 p-5 px-6 shrink-0">
-                                    <DialogTitle className="text-lg flex items-center justify-between w-full pr-8">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200/50">
-                                                <Terminal className="h-4 w-4" />
-                                            </div>
-                                            <span className="font-bold tracking-tight text-slate-800 dark:text-white">Pacio Server Logs</span>
-                                        </div>
-                                        <Button variant="outline" size="sm" onClick={fetchServerLogs} disabled={fetchingLogs} className="text-[13px] rounded-lg px-4 cursor-pointer hover:bg-slate-100 transition-colors">
-                                            {fetchingLogs ? 'Refreshing...' : 'Refresh Logs'}
-                                        </Button>
-                                    </DialogTitle>
-                                </DialogHeader>
-                                <div className="flex-1 overflow-hidden bg-[#0f172a]">
-                                    <ScrollArea className="h-full w-full text-left">
-                                        <pre className="font-mono text-[11px] p-6 text-slate-300 break-words whitespace-pre-wrap leading-relaxed">
-                                            {serverLogs}
-                                        </pre>
-                                    </ScrollArea>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
-                </div>
-
+                <CrewHeader
+                    title="PACIO Events"
+                    subtitle="Trigger PACIO events for system simulation and testing."
+                    isFlightOpen={isFlightOpen}
+                    clientsConnected={clientsConnected}
+                    showLogs={showLogs}
+                    setShowLogs={setShowLogs}
+                    fetchServerLogs={fetchServerLogs}
+                    fetchingLogs={fetchingLogs}
+                    serverLogs={serverLogs}
+                />
                 {/* Quick Controls — always visible, directly below header */}
                 <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-[#e2e8f0] dark:border-slate-700/60 px-6 py-3 flex gap-4">
                     {/* Flight Operations */}
@@ -690,7 +589,7 @@ const CrewTerminalPage = () => {
                                 <div ref={gridScrollRef} className="flex-1 overflow-y-auto p-6 min-w-0 bg-[#f8fafc] dark:bg-slate-950">
 
                                     {/* Event Grid */}
-                                    <div className="space-y-8 pb-6">
+                                    <div className="space-y-8 pb-24">
                                         {searchQuery ? (
                                             <div>
                                                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Search Results</p>
@@ -910,7 +809,7 @@ const CrewTerminalPage = () => {
 
                             {/* Event Grid */}
 
-                            <div className="space-y-8 pb-6 flex items-center justify-center h-full">
+                            <div className="space-y-8 pb-24 flex items-center justify-center h-full">
                                 <div className="p-5 bg-slate-200 rounded-[24px] border border-slate-100 mb-5 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-900 dark:text-blue-300 text-[12px] font-bold  flex flex-col items-center gap-3">
                                     <Plane className="w-9 h-9 text-red-400" />
                                     <p className=''>Please <b className='font-bold text-emerald-500'>Open the Flight</b> to view and trigger events.</p>
@@ -943,7 +842,7 @@ const CrewTerminalPage = () => {
     );
 };
 
-const EventCard = ({ evt, meta, isSelected, onClick }) => (
+const EventCard = ({ meta, isSelected, onClick }) => (
     <button
         onClick={onClick}
         className={`group text-left w-full rounded-2xl border p-4 transition-all duration-200 flex flex-row gap-3 cursor-pointer ${isSelected

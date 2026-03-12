@@ -259,8 +259,8 @@ export default function BaseLayout() {
                 </SidebarContent>
             </Sidebar>
 
-            <SidebarInset>
-                <header className="flex h-20 shrink-0 items-center gap-2 border-b bg-background px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-20 ">
+            <SidebarInset className="relative flex flex-col h-screen overflow-hidden">
+                <header className="sticky top-0 z-50 flex h-20 shrink-0 items-center gap-2 border-b bg-background px-4 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-20">
                     {/* Header SidebarTrigger removed/hidden as per request, logic moved to Platform button */}
                     {/* <SidebarTrigger className="-ml-1" /> */}
                     <Breadcrumb>
@@ -298,9 +298,16 @@ export default function BaseLayout() {
                         <img src="/Brand.png" alt="Brand Logo" className="h-16 w-auto object-contain" />
                     </div>
                 </header>
-                <div className="flex-1 flex flex-col min-h-0 bg-muted/20">
+                {/* <div className="flex-1 flex flex-col min-h-0 bg-muted/20">
                     <main className="flex-1 p-6 md:p-8 overflow-auto">
                         <div className="mx-auto max-w-7xl">
+                            <Outlet />
+                        </div>
+                    </main>
+                </div> */}
+                <div className="flex-1 flex flex-col min-h-0 bg-muted/20 overflow-hidden">
+                    <main className="flex-1 overflow-hidden">
+                        <div className="h-full mx-auto max-w-7xl">
                             <Outlet />
                         </div>
                     </main>
