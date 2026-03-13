@@ -27,12 +27,19 @@ export const Toggle = ({ value, options, onChange, accent }) => (
     <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700/50">
         {options.map(opt => {
             const active = value === opt.value;
-            // Provide a light mode fallback for accent colors if needed, but accent.bg should be okay
+
+            let activeStyle = { background: accent?.bg, border: `1px solid ${accent?.border}`, color: accent?.text, boxShadow: `0 2px 8px ${accent?.glow}` };
+            if (opt.semantic === "success") {
+                activeStyle = { background: "#f0fdf4", border: "1px solid #86efac", color: "#16a34a", boxShadow: "0 0 8px rgba(34,197,94,0.3)" };
+            } else if (opt.semantic === "danger") {
+                activeStyle = { background: "#fef2f2", border: "1px solid #fca5a5", color: "#dc2626", boxShadow: "0 0 8px rgba(239,68,68,0.3)" };
+            }
+
             return (
                 <button key={opt.value} onClick={() => onChange(opt.value)}
                     className="flex-1 py-2.5 rounded-lg text-[12px] font-bold tracking-wide transition-all duration-150 cursor-pointer text-center"
                     style={active
-                        ? { background: accent.bg, border: `1px solid ${accent.border}`, color: accent.text, boxShadow: `0 2px 8px ${accent.glow}` }
+                        ? activeStyle
                         : { background: "transparent", border: "1px solid transparent", color: "#64748b" }
                     }
                 >
@@ -114,7 +121,15 @@ export const ConnectingGateForm = ({ form, onChange, accent }) => (
         </div>
         <div>
             <Label>Gate State</Label>
-            <Toggle value={form.state} options={[{ label: "✓  ENABLE", value: "ENABLE" }, { label: "✕  DISABLE", value: "DISABLE" }]} onChange={v => onChange("state", v)} accent={accent} />
+            <Toggle
+                value={form.state}
+                options={[
+                    { label: "✓  ENABLE", value: "ENABLE", semantic: "success" },
+                    { label: "✕  DISABLE", value: "DISABLE", semantic: "danger" }
+                ]}
+                onChange={v => onChange("state", v)}
+                accent={accent}
+            />
         </div>
         <PayloadPreview label="Wire payload" value={`CG|${form.state || "ENABLE"}`} />
         <PayloadPreview label="XML envelope" value={`<msg pmid="-1" timeout="${form.timeout || 20}">CG|${form.state || "ENABLE"}</msg>`} />
@@ -129,7 +144,15 @@ export const ScreensaverForm = ({ form, onChange, accent }) => (
         </div>
         <div>
             <Label>Screen Saver State</Label>
-            <Toggle value={form.state} options={[{ label: "● Turn ON", value: "on" }, { label: "○ Turn OFF", value: "off" }]} onChange={v => onChange("state", v)} accent={accent} />
+            <Toggle
+                value={form.state}
+                options={[
+                    { label: "● Turn ON", value: "on", semantic: "success" },
+                    { label: "○ Turn OFF", value: "off", semantic: "danger" }
+                ]}
+                onChange={v => onChange("state", v)}
+                accent={accent}
+            />
         </div>
         <PayloadPreview label="Wire payload" value={`ctMsg|screensaver|${form.state || "on"}`} />
         <PayloadPreview label="XML envelope" value={`<msg pmid="-1" timeout="${form.timeout || 20}">ctMsg|screensaver|${form.state || "on"}</msg>`} />

@@ -101,7 +101,8 @@ export default function BaseLayout() {
             icon: Terminal,
             items: [
                 { title: "PACIO-Events", url: "/crew-terminal", icon: Plane, },
-                { title: "Messaging", url: "/crew-terminal/messaging", icon: Terminal }
+                { title: "Messaging", url: "/crew-terminal/messaging", icon: Terminal },
+                { title: "MID Service Blocking", url: "/crew-terminal/mid-service-blocking", icon: Settings }
             ]
         }
     ];

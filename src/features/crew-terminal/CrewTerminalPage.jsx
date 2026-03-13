@@ -142,6 +142,7 @@ const QUICK_ACTIONS = {
     ],
     "X2_PA_STATE": [
         { label: "PA ON", value: "[1]" },
+        { label: "PA OFF", value: "[0]" }
     ]
 };
 

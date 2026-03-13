@@ -15,6 +15,7 @@ import { SocketProvider } from './contexts/SocketContext';
 import { ApiProvider } from './contexts/ApiContext';
 import { TourProvider } from './contexts/TourContext';
 import { Toaster } from 'sonner';
+import CrewTerminalMIDServiceBlocking from './features/crew-terminal/CrewTerminalMIDServiceBlocking';
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ function App() {
                   <Route path="settings" element={<SettingsPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                   <Route path="/crew-terminal/messaging" element={<CrewTerminalMessaging />} />
+                  <Route path="/crew-terminal/mid-service-blocking" element={<CrewTerminalMIDServiceBlocking />} />
                 </Route>
               </Routes>
               <Toaster position="top-right" richColors />

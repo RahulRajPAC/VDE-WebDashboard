@@ -74,6 +74,24 @@ export const MESSAGE_TYPES = [
         Icon: AccessibilityIcon,
         accent: { border: "#f59e0b", glow: "rgba(245,158,11,0.25)", bg: "rgba(245,158,11,0.10)", icon: "#fcd34d", badge: "#78350f", text: "#fde68a" },
         description: "Control passenger accessibility features such as TTS, high contrast, text size, and color inversion.",
+    },
+    {
+        key: "connecting_gate",
+        label: "Connecting Gate",
+        subtitle: "Connecting gate information",
+        typeCode: "6",
+        Icon: MessageSquare,
+        accent: { border: "#3b82f6", glow: "rgba(59,130,246,0.25)", bg: "rgba(59,130,246,0.10)", icon: "#93c5fd", badge: "#1e40af", text: "#bfdbfe" },
+        description: "Send connecting gate information to the seat. The PMID identifies the catalog entry on the IFE unit.",
+    },
+    {
+        key: "screensaver",
+        label: "Screensaver",
+        subtitle: "Screensaver",
+        typeCode: "12",
+        Icon: MessageSquare,
+        accent: { border: "#3b82f6", glow: "rgba(59,130,246,0.25)", bg: "rgba(59,130,246,0.10)", icon: "#93c5fd", badge: "#1e40af", text: "#bfdbfe" },
+        description: "Send screensaver information to the seat. The PMID identifies the catalog entry on the IFE unit.",
     }
 ];
 
@@ -82,7 +100,6 @@ export const defaultForms = {
     freetext: { timeout: "20", message: "" },
     connecting_gate: { timeout: "20", state: "ENABLE" },
     screensaver: { timeout: "20", state: "on" },
-    wireless_custom: { timeout: "20", message: "" },
     accessibility: {
         timeout: "30",
         tts_state: "",
